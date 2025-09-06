@@ -94,7 +94,6 @@ contract EventManager is Ownable, ReentrancyGuard {
 
     /// @notice Event lifecycle states
     enum EventStatus {
-        Created, // Event created but not visible
         Published, // Event visible and accepting registrations
         Canceled, // Event canceled (full refunds)
         Completed // Event finished (settlements processed)
@@ -114,7 +113,6 @@ contract EventManager is Ownable, ReentrancyGuard {
 
     event AccountCreated(address indexed user);
     event EventCreated(uint256 indexed eventId, address indexed organizer);
-    event EventPublished(uint256 indexed eventId);
     event EventCanceled(uint256 indexed eventId);
     event EventCompleted(uint256 indexed eventId);
     event CheckInClosed(uint256 indexed eventId);
@@ -268,27 +266,13 @@ contract EventManager is Ownable, ReentrancyGuard {
         newEvent.startTime = _startTime;
         newEvent.endTime = _endTime;
         newEvent.capacity = _capacity;
-        newEvent.status = EventStatus.Created;
-        newEvent.published = false;
+        newEvent.status = EventStatus.Published;
+        newEvent.published = true;
 
         emit EventCreated(eventId, msg.sender);
         return eventId;
     }
 
-    /**
-     * @notice Make event visible and open for registration
-     * @param _eventId Event to publish
-     */
-    function publishEvent(uint256 _eventId) external {
-        Event storage evt = events[_eventId];
-        require(evt.organizer == msg.sender, "Only organizer can publish");
-        require(evt.status == EventStatus.Created, "Event already published or finalized");
-
-        evt.published = true;
-        evt.status = EventStatus.Published;
-
-        emit EventPublished(_eventId);
-    }
 
     /**
      * @notice Cancel event and trigger full refunds

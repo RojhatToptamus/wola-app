@@ -113,7 +113,7 @@ describe("EventManager", function () {
       endTime = startTime + 3600; // 26 hours from now
     });
 
-    it("Should create and publish event successfully", async function () {
+    it("Should create event successfully (auto-published)", async function () {
       const initialBalance = await mockUSDC.balanceOf(organizer.address);
 
       await expect(eventManager.connect(organizer).createEvent("Test Event Description", startTime, endTime, CAPACITY))
@@ -122,13 +122,7 @@ describe("EventManager", function () {
 
       eventId = 1;
 
-      // Check bond was transferred
       expect(await mockUSDC.balanceOf(organizer.address)).to.equal(initialBalance - BOND_AMOUNT);
-
-      // Publish the event
-      await expect(eventManager.connect(organizer).publishEvent(eventId))
-        .to.emit(eventManager, "EventPublished")
-        .withArgs(eventId);
     });
 
     it("Should validate event parameters", async function () {
@@ -142,7 +136,6 @@ describe("EventManager", function () {
       beforeEach(async function () {
         await eventManager.connect(organizer).createEvent("Test Event Description", startTime, endTime, CAPACITY);
         eventId = 1;
-        await eventManager.connect(organizer).publishEvent(eventId);
       });
 
       it("Should handle registration flow correctly", async function () {
@@ -337,7 +330,6 @@ describe("EventManager", function () {
 
       await eventManager.connect(organizer).createEvent("Test Event Description", startTime, endTime, CAPACITY);
       eventId = 1;
-      await eventManager.connect(organizer).publishEvent(eventId);
     });
 
     it("Should enforce capacity limits", async function () {
@@ -380,10 +372,6 @@ describe("EventManager", function () {
     });
 
     it("Should prevent unauthorized actions", async function () {
-      await expect(eventManager.connect(participant1).publishEvent(eventId)).to.be.revertedWith(
-        "Only organizer can publish",
-      );
-
       await expect(eventManager.connect(participant1).cancelEvent(eventId)).to.be.revertedWith(
         "Only organizer or admin",
       );

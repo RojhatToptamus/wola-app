@@ -378,15 +378,7 @@ const EventDetailPage = () => {
                 <div>
                   <div className="text-white/60 text-sm">Status</div>
                   <div className="text-white font-medium">
-                    {0 === status
-                      ? "Created"
-                      : status === 1
-                        ? "Published"
-                        : status === 2
-                          ? "Canceled"
-                          : status === 3
-                            ? "Completed"
-                            : "Unknown"}
+                    {0 === status ? "Published" : status === 1 ? "Canceled" : status === 2 ? "Completed" : "Unknown"}
                   </div>
                 </div>
               </div>
