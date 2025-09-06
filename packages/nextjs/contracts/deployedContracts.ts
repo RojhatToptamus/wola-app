@@ -7,7 +7,7 @@ import { GenericContractsDeclaration } from "~~/utils/scaffold-eth/contract";
 const deployedContracts = {
   11155931: {
     EventManager: {
-      address: "0x480e34a4408a729378D4204a6251654e0DD41636",
+      address: "0x2209529450941ea837A013B0d5ec90E862a1b957",
       abi: [
         {
           inputs: [
@@ -94,6 +94,19 @@ const deployedContracts = {
             },
           ],
           name: "BoundsUpdated",
+          type: "event",
+        },
+        {
+          anonymous: false,
+          inputs: [
+            {
+              indexed: true,
+              internalType: "uint256",
+              name: "eventId",
+              type: "uint256",
+            },
+          ],
+          name: "CheckInClosed",
           type: "event",
         },
         {
@@ -306,6 +319,19 @@ const deployedContracts = {
           type: "event",
         },
         {
+          inputs: [],
+          name: "COMPLETION_DEADLINE",
+          outputs: [
+            {
+              internalType: "uint256",
+              name: "",
+              type: "uint256",
+            },
+          ],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
           inputs: [
             {
               internalType: "address",
@@ -417,6 +443,19 @@ const deployedContracts = {
               type: "uint256",
             },
           ],
+          name: "closeCheckIn",
+          outputs: [],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [
+            {
+              internalType: "uint256",
+              name: "_eventId",
+              type: "uint256",
+            },
+          ],
           name: "completeEvent",
           outputs: [],
           stateMutability: "nonpayable",
@@ -444,6 +483,11 @@ const deployedContracts = {
             {
               internalType: "uint64",
               name: "_startTime",
+              type: "uint64",
+            },
+            {
+              internalType: "uint64",
+              name: "_endTime",
               type: "uint64",
             },
             {
@@ -499,6 +543,11 @@ const deployedContracts = {
               type: "uint64",
             },
             {
+              internalType: "uint64",
+              name: "endTime",
+              type: "uint64",
+            },
+            {
               internalType: "uint16",
               name: "minAttendanceBps",
               type: "uint16",
@@ -519,6 +568,16 @@ const deployedContracts = {
               type: "bool",
             },
             {
+              internalType: "bool",
+              name: "bondReleased",
+              type: "bool",
+            },
+            {
+              internalType: "bool",
+              name: "checkInClosed",
+              type: "bool",
+            },
+            {
               internalType: "uint32",
               name: "confirmedCount",
               type: "uint32",
@@ -529,13 +588,13 @@ const deployedContracts = {
               type: "uint32",
             },
             {
-              internalType: "bool",
-              name: "bondReleased",
-              type: "bool",
+              internalType: "uint256",
+              name: "forfeitPool",
+              type: "uint256",
             },
             {
               internalType: "uint256",
-              name: "forfeitPool",
+              name: "rewardPerAttendee",
               type: "uint256",
             },
           ],
@@ -594,6 +653,11 @@ const deployedContracts = {
             {
               internalType: "uint64",
               name: "startTime",
+              type: "uint64",
+            },
+            {
+              internalType: "uint64",
+              name: "endTime",
               type: "uint64",
             },
             {
@@ -705,7 +769,7 @@ const deployedContracts = {
               type: "address",
             },
           ],
-          name: "hasAccount",
+          name: "isRegisteredUser",
           outputs: [
             {
               internalType: "bool",
@@ -898,10 +962,10 @@ const deployedContracts = {
         renounceOwnership: "@openzeppelin/contracts/access/Ownable.sol",
         transferOwnership: "@openzeppelin/contracts/access/Ownable.sol",
       },
-      deployedOnBlock: 22070432,
+      deployedOnBlock: 22074217,
     },
     MockUSDC: {
-      address: "0xf332ccb87366dCC301D0160B7dcC9355Db3cF297",
+      address: "0x617E9308eb2eBc07be4F62bC4b284c45EfF39907",
       abi: [
         {
           inputs: [],
@@ -1246,10 +1310,10 @@ const deployedContracts = {
         transfer: "@openzeppelin/contracts/token/ERC20/ERC20.sol",
         transferFrom: "@openzeppelin/contracts/token/ERC20/ERC20.sol",
       },
-      deployedOnBlock: 22070430,
+      deployedOnBlock: 22074215,
     },
     YourContract: {
-      address: "0xe270cCab7d266d79EcaCbDe637Eb8F34e7f5894C",
+      address: "0x907F6941A1327720ef288139d19dD280007d6022",
       abi: [
         {
           inputs: [
@@ -1390,7 +1454,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deployedOnBlock: 22057142,
+      deployedOnBlock: 22074213,
     },
   },
 } as const;
