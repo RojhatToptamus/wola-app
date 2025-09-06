@@ -273,7 +273,6 @@ contract EventManager is Ownable, ReentrancyGuard {
         return eventId;
     }
 
-
     /**
      * @notice Cancel event and trigger full refunds
      * @param _eventId Event to cancel

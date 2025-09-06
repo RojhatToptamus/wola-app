@@ -1,11 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useAccount } from "wagmi";
+import { Cog6ToothIcon } from "@heroicons/react/24/outline";
+import EventStatsCard from "~~/components/EventStatsCard";
 import { useScaffoldReadContract, useScaffoldWriteContract } from "~~/hooks/scaffold-eth";
+import {
+  RegistrationStatus,
+  formatUSDC,
+  getAvailableActions,
+  isOrganizer,
+  safeParseEventData,
+} from "~~/utils/eventUtils";
 import { getOrganizerForEvent, getVenueForEvent } from "~~/utils/mockData";
 
 // Types for policy data
@@ -41,6 +50,7 @@ const EventDetailPage = () => {
 
   const [isRegistering, setIsRegistering] = useState(false);
   const [isCanceling, setIsCanceling] = useState(false);
+  const [isClaiming, setIsClaiming] = useState(false);
   const [registrationStatus, setRegistrationStatus] = useState<string | null>(null);
 
   // Contract hooks
@@ -61,6 +71,20 @@ const EventDetailPage = () => {
     functionName: "attendeeDepositAmount",
   });
 
+  // Get claimable payout
+  const { data: claimablePayout } = useScaffoldReadContract({
+    contractName: "EventManager",
+    functionName: "getClaimablePayout",
+    args: [eventId, address || "0x0000000000000000000000000000000000000000"],
+  });
+
+  // Get user balance for withdraw
+  const { data: userBalance } = useScaffoldReadContract({
+    contractName: "EventManager",
+    functionName: "balances",
+    args: [address || "0x0000000000000000000000000000000000000000"],
+  });
+
   // Check user registration status
   const { data: userRegistration } = useScaffoldReadContract({
     contractName: "EventManager",
@@ -73,6 +97,25 @@ const EventDetailPage = () => {
     contractName: "EventManager",
     functionName: "policy",
   });
+
+  // Parse event data safely
+  const parsedEvent = useMemo(() => {
+    if (!eventData) return null;
+    return safeParseEventData(eventData as readonly unknown[]);
+  }, [eventData]);
+
+  // Check if user is organizer
+  const isUserOrganizer = useMemo(() => {
+    if (!address || !parsedEvent) return false;
+    return isOrganizer(address, parsedEvent.organizer);
+  }, [address, parsedEvent]);
+
+  // Get available actions
+  const actions = useMemo(() => {
+    if (!parsedEvent) return null;
+    const userRegStatus = userRegistration ? BigInt(userRegistration[0] as number) : BigInt(RegistrationStatus.None);
+    return getAvailableActions(parsedEvent, address, userRegStatus);
+  }, [parsedEvent, address, userRegistration]);
 
   // Calculate refund information based on timing and policy
   const calculateRefundInfo = (startTimestamp: bigint, policy: PolicyConfig | undefined): RefundInfo => {
@@ -202,6 +245,47 @@ const EventDetailPage = () => {
     }
   };
 
+  // Handle claim payout
+  const handleClaimPayout = async () => {
+    if (!address) {
+      alert("Please connect your wallet first");
+      return;
+    }
+
+    setIsClaiming(true);
+    try {
+      await writeEventManagerAsync({
+        functionName: "claimPayout",
+        args: [eventId],
+      });
+      setRegistrationStatus("Payout claimed successfully!");
+    } catch (error) {
+      console.error("Claim payout failed:", error);
+      setRegistrationStatus("Failed to claim payout. Please try again.");
+    } finally {
+      setIsClaiming(false);
+    }
+  };
+
+  // Handle withdraw
+  const handleWithdraw = async () => {
+    if (!address) {
+      alert("Please connect your wallet first");
+      return;
+    }
+
+    try {
+      await writeEventManagerAsync({
+        functionName: "withdraw",
+        args: undefined,
+      });
+      setRegistrationStatus("Withdrawal successful!");
+    } catch (error) {
+      console.error("Withdrawal failed:", error);
+      setRegistrationStatus("Failed to withdraw. Please try again.");
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -210,13 +294,8 @@ const EventDetailPage = () => {
     );
   }
 
-  // Check if event exists - contract returns all zeros for non-existent events
-  if (
-    !eventData ||
-    eventData.every(
-      item => item === 0 || item === "0x0000000000000000000000000000000000000000" || item === "" || item === false,
-    )
-  ) {
+  // Check if event exists
+  if (!parsedEvent) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
@@ -229,41 +308,13 @@ const EventDetailPage = () => {
     );
   }
 
-  // Parse the tuple data correctly - matches contract's events() function return
-  const [
-    ,
-    // organizerAddress (unused)
-    description, // string
-    startTimestamp, // uint64
-    endTimestamp, // uint64
-    capacity, // uint32
-    status, // EventStatus enum (uint8)
-    ,
-    ,
-    ,
-    // published (unused)
-    // bondReleased (unused)
-    // checkInClosed (unused)
-    confirmedCount, // uint32
-    // attendedCount (unused)
-    // forfeitPool (unused)
-    // rewardPerAttendee (unused)
-    ,
-    ,
-    ,
-  ] = eventData;
-
   const venue = getVenueForEvent(params?.id as string);
   const organizerName = getOrganizerForEvent(params?.id as string);
 
-  // Convert timestamps to BigInt for functions that expect it
-  const startTimestampBigInt = BigInt(startTimestamp);
-  const endTimestampBigInt = BigInt(endTimestamp);
-
-  const { date: startDate, time: startTime } = formatDateTime(startTimestampBigInt);
-  const { time: endTime } = formatDateTime(endTimestampBigInt);
-  const isLive = isEventLive(startTimestampBigInt, endTimestampBigInt);
-  const userRegStatus = getRegistrationStatusText();
+  const { date: startDate, time: startTime } = formatDateTime(parsedEvent.startTime);
+  const { time: endTime } = formatDateTime(parsedEvent.endTime);
+  const isLive = isEventLive(parsedEvent.startTime, parsedEvent.endTime);
+  const userRegStatus = userRegistration ? getRegistrationStatusText() : "Not Registered";
   const randomImageId = parseInt(params?.id as string) * 17; // Consistent image for each event
 
   return (
@@ -305,7 +356,7 @@ const EventDetailPage = () => {
           <div className="space-y-6">
             {/* Event Title */}
             <div>
-              <h1 className="text-4xl font-bold text-white mb-2">{description || "Untitled Event"}</h1>
+              <h1 className="text-4xl font-bold text-white mb-2">{parsedEvent.description || "Untitled Event"}</h1>
 
               {/* Featured badge */}
               <div className="flex items-center gap-2 mb-4">
@@ -367,22 +418,7 @@ const EventDetailPage = () => {
             </div>
 
             {/* Event Stats */}
-            <div className="bg-base-300/80 backdrop-blur-sm border border-accent/30 rounded-xl p-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <div className="text-white/60 text-sm">Capacity</div>
-                  <div className="text-white font-medium">
-                    {Number(confirmedCount)}/{Number(capacity)} registered
-                  </div>
-                </div>
-                <div>
-                  <div className="text-white/60 text-sm">Status</div>
-                  <div className="text-white font-medium">
-                    {0 === status ? "Published" : status === 1 ? "Canceled" : status === 2 ? "Completed" : "Unknown"}
-                  </div>
-                </div>
-              </div>
-            </div>
+            <EventStatsCard eventData={parsedEvent} />
 
             {/* Stake Requirement */}
             <div className="bg-base-300/80 backdrop-blur-sm border border-accent/30 rounded-xl p-6">
@@ -467,7 +503,7 @@ const EventDetailPage = () => {
                         partialRefundPercent: policyData[2],
                         attendeeSharePercent: policyData[3],
                       };
-                      const refundInfo = calculateRefundInfo(startTimestampBigInt, policy);
+                      const refundInfo = calculateRefundInfo(parsedEvent.startTime, policy);
 
                       return (
                         <div className="space-y-3">
@@ -572,11 +608,68 @@ const EventDetailPage = () => {
 
             {/* Registration Section */}
             <div className="space-y-4">
-              {userRegStatus && userRegStatus !== "Registered" && (
+              {/* Organizer Management Link */}
+              {isUserOrganizer && (
+                <Link
+                  href={`/events/${params?.id}/manage`}
+                  className="btn bg-white text-gray-800 hover:bg-gray-100 border-white w-full mb-4"
+                >
+                  <Cog6ToothIcon className="w-4 h-4 mr-2" />
+                  Manage Event
+                </Link>
+              )}
+
+              {userRegStatus && userRegStatus !== "Not Registered" && userRegStatus !== "Registered" && (
                 <div className="bg-green-500/20 border border-green-500/30 rounded-xl p-4">
                   <div className="flex items-center gap-2">
                     <div className="w-2 h-2 bg-green-400 rounded-full"></div>
                     <span className="text-green-400 font-medium">You&apos;re {userRegStatus}</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Claim Payout */}
+              {!!(actions?.canClaimPayout && claimablePayout && claimablePayout > 0) && (
+                <div className="bg-base-300/80 backdrop-blur-sm border border-white/30 rounded-xl p-4 mb-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="text-white font-medium mb-1">Payout Available</h4>
+                      <p className="text-white/70 text-sm">
+                        You can claim {formatUSDC(claimablePayout)} from this event
+                      </p>
+                    </div>
+                    <button
+                      onClick={handleClaimPayout}
+                      disabled={isClaiming}
+                      className="btn bg-white text-gray-800 hover:bg-gray-100 border-white w-full"
+                    >
+                      {isClaiming ? (
+                        <div className="flex items-center gap-2">
+                          <div className="animate-spin w-4 h-4 border-2 border-current border-t-transparent rounded-full"></div>
+                          Claiming...
+                        </div>
+                      ) : (
+                        "Claim Payout"
+                      )}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Withdraw Balance */}
+              {!!(userBalance && userBalance > 0) && (
+                <div className="bg-base-300/80 backdrop-blur-sm border border-white/30 rounded-xl p-4 mb-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="text-white font-medium mb-1">Balance Available</h4>
+                      <p className="text-white/70 text-sm">You have {formatUSDC(userBalance)} available to withdraw</p>
+                    </div>
+                    <button
+                      onClick={handleWithdraw}
+                      className="btn bg-white text-gray-800 hover:bg-gray-100 border-white"
+                    >
+                      Withdraw
+                    </button>
                   </div>
                 </div>
               )}
@@ -593,7 +686,7 @@ const EventDetailPage = () => {
                 </div>
               )}
 
-              {!userRegStatus && (
+              {!!actions?.canRegister && (
                 <button
                   onClick={handleRegister}
                   disabled={isRegistering || !address}

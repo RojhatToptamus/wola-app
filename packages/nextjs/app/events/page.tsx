@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useScaffoldReadContract } from "~~/hooks/scaffold-eth";
+import { formatDateTime, isEventLive, safeParseEventData } from "~~/utils/eventUtils";
 import { getRandomOrganizer, getRandomVenue } from "~~/utils/mockData";
 
 const EventsListPage = () => {
@@ -28,43 +29,17 @@ const EventsListPage = () => {
     }
   }, [nextEventId]);
 
-  // Format timestamp to readable date/time
-  const formatDateTime = (timestamp: bigint) => {
-    const date = new Date(Number(timestamp) * 1000);
+  // Format timestamp for list view (simplified)
+  const formatDateTimeForList = (timestamp: bigint) => {
+    const { date, time } = formatDateTime(timestamp);
+    const eventDate = new Date(Number(timestamp) * 1000);
     const today = new Date();
-    const isToday = date.toDateString() === today.toDateString();
-
-    if (isToday) {
-      return {
-        date: "Today",
-        time: date.toLocaleTimeString("en-US", {
-          hour: "numeric",
-          minute: "2-digit",
-          hour12: true,
-        }),
-      };
-    }
+    const isToday = eventDate.toDateString() === today.toDateString();
 
     return {
-      date: date.toLocaleDateString("en-US", {
-        weekday: "long",
-        month: "short",
-        day: "numeric",
-      }),
-      time: date.toLocaleTimeString("en-US", {
-        hour: "numeric",
-        minute: "2-digit",
-        hour12: true,
-      }),
+      date: isToday ? "Today" : date.split(",")[1]?.trim() || date,
+      time,
     };
-  };
-
-  // Check if event is live (started but not ended)
-  const isEventLive = (startTime: bigint, endTime: bigint) => {
-    const now = Date.now() / 1000;
-    const start = Number(startTime);
-    const end = Number(endTime);
-    return now >= start && now <= end;
   };
 
   // Event card component
@@ -88,37 +63,13 @@ const EventsListPage = () => {
       );
     }
 
-    if (!eventData || !eventData[0] || eventData[0] === "0x0000000000000000000000000000000000000000") {
+    const parsedEvent = safeParseEventData(eventData);
+    if (!parsedEvent) {
       return null;
     }
 
-    // Parse the tuple data correctly
-    const [
-      ,
-      // organizerAddress
-      description, // string
-      startTimestamp, // uint64
-      endTimestamp, // uint64
-      capacity, // uint32
-      ,
-      ,
-      ,
-      ,
-      // status
-      // published
-      // bondReleased
-      // checkInClosed
-      confirmedCount, // uint32
-      // attendedCount
-      // forfeitPool
-      // rewardPerAttendee
-      ,
-      ,
-      ,
-    ] = eventData;
-
-    const { date, time } = formatDateTime(startTimestamp);
-    const isLive = isEventLive(startTimestamp, endTimestamp);
+    const { date, time } = formatDateTimeForList(parsedEvent.startTime);
+    const isLive = isEventLive(parsedEvent.startTime, parsedEvent.endTime);
     const venue = getRandomVenue();
     const organizerName = getRandomOrganizer();
     const randomImageId = Math.floor(Math.random() * 1000) + 1;
@@ -155,7 +106,9 @@ const EventsListPage = () => {
             {/* Event Content */}
             <div className="p-6">
               {/* Event Title/Description */}
-              <h3 className="text-xl font-bold text-white mb-3 line-clamp-2">{description || "Untitled Event"}</h3>
+              <h3 className="text-xl font-bold text-white mb-3 line-clamp-2">
+                {parsedEvent.description || "Untitled Event"}
+              </h3>
 
               {/* Organizer */}
               <div className="flex items-center gap-3 mb-3">
@@ -200,7 +153,7 @@ const EventsListPage = () => {
                       />
                     </svg>
                     <span className="text-white/70 text-sm">
-                      {Number(confirmedCount)}/{Number(capacity)}
+                      {Number(parsedEvent.confirmedCount)}/{Number(parsedEvent.capacity)}
                     </span>
                   </div>
 
