@@ -37,6 +37,9 @@ export const getRandomImage = (seed?: number): string => {
   return `https://picsum.photos/600/400?random=${imageId}`;
 };
 
+export const getAvailableEventCovers = (): string[] => {
+  return [...EVENT_COVER_IMAGES];
+};
 export const isLocalEventCover = (imageUrl: string): boolean => {
   return EVENT_COVER_IMAGES.some(cover => imageUrl.includes(cover));
 };
