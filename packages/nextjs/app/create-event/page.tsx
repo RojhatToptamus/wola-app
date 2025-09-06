@@ -42,13 +42,42 @@ const CreateEventPage = () => {
   const handleCreateEvent = async () => {
     console.log("Creating event:", formData);
 
+    // Validation
+    if (!formData.startDate || !formData.startTime) {
+      console.error("Start date and time are required");
+      return;
+    }
+
+    if (!formData.description.trim()) {
+      console.error("Event description is required");
+      return;
+    }
+
     // Convert form data to contract parameters
     const startDateTime = new Date(`${formData.startDate}T${formData.startTime}`);
-    const endDateTime = new Date(`${formData.endDate}T${formData.endTime}`);
+
+    // If end date/time not provided, default to 2 hours after start
+    let endDateTime;
+    if (formData.endDate && formData.endTime) {
+      endDateTime = new Date(`${formData.endDate}T${formData.endTime}`);
+    } else {
+      endDateTime = new Date(startDateTime.getTime() + 2 * 60 * 60 * 1000); // 2 hours later
+    }
 
     const startTime = Math.floor(startDateTime.getTime() / 1000);
     const endTime = Math.floor(endDateTime.getTime() / 1000);
     const capacity = parseInt(formData.capacity) || 100;
+
+    // Additional validation
+    if (isNaN(startTime) || isNaN(endTime)) {
+      console.error("Invalid date/time format");
+      return;
+    }
+
+    if (startTime >= endTime) {
+      console.error("End time must be after start time");
+      return;
+    }
 
     try {
       await writeEventManagerAsync({
@@ -56,6 +85,19 @@ const CreateEventPage = () => {
         args: [formData.description, BigInt(startTime), BigInt(endTime), capacity],
       });
       console.log("Event created successfully!");
+      // Reset form after successful creation
+      setFormData({
+        eventName: "",
+        startDate: "",
+        startTime: "",
+        endDate: "",
+        endTime: "",
+        location: "",
+        description: "",
+        capacity: "",
+        tickets: "Free",
+        requireApproval: false,
+      });
     } catch (error) {
       console.error("Error creating event:", error);
     }
