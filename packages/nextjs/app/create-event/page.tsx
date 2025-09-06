@@ -73,6 +73,8 @@ const CreateEventPage = () => {
             <Image
               src="https://picsum.photos/500/500?random=1"
               alt="Event image"
+              width={600}
+              height={500}
               className="w-full h-full object-cover rounded-xl"
             />
           </div>
