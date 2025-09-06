@@ -35,20 +35,14 @@ const CreateEventPage = () => {
         {/* Left side - Image container */}
         <div className="flex items-start justify-center">
           <div
-            className="w-96 h-96 bg-base-300/20 border-2 border-dashed border-white/30 rounded-xl flex items-center justify-center cursor-pointer hover:border-white/50 transition-colors"
-            style={{ width: "384px", height: "384px" }}
+            className="w-96 h-96 bg-base-300/20  rounded-xl flex items-center justify-center cursor-pointer hover:border-white/50 transition-colors"
+            style={{ width: "500px", height: "500px" }}
           >
-            <div className="text-center">
-              <svg
-                className="w-12 h-12 text-white/60 mx-auto mb-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-              </svg>
-              <p className="text-white/60">Add Event Image</p>
-            </div>
+            <img
+              src="https://picsum.photos/500/500?random=1"
+              alt="Event image"
+              className="w-full h-full object-cover rounded-xl"
+            />
           </div>
         </div>
 
@@ -263,7 +257,7 @@ const CreateEventPage = () => {
                 <input
                   type="number"
                   placeholder="Unlimited"
-                  className="input bg-transparent border-none outline-none text-white placeholder-white/60 text-right w-24"
+                  className="input bg-transparent border-none outline-none text-white placeholder-white/60 text-right w-48"
                   value={formData.capacity}
                   onChange={e => handleInputChange("capacity", e.target.value)}
                 />
