@@ -2,8 +2,6 @@
 
 @custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
 
-@custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
-
 @theme {
   --shadow-center: 0 0 12px -2px rgb(0 0 0 / 0.05);
   --animate-pulse-fast: pulse 1s cubic-bezier(0.4, 0, 0.6, 1) infinite;
@@ -43,19 +41,20 @@
 @plugin "daisyui/theme" {
   name: "dark";
 
-  --color-primary: #212638;
-  --color-primary-content: #f9fbff;
-  --color-secondary: #323f61;
-  --color-secondary-content: #f9fbff;
-  --color-accent: #4969a6;
-  --color-accent-content: #f9fbff;
-  --color-neutral: #f9fbff;
-  --color-neutral-content: #385183;
-  --color-base-100: #385183;
-  --color-base-200: #2a3655;
-  --color-base-300: #212638;
-  --color-base-content: #f9fbff;
-  --color-info: #385183;
+  /* 🎨 Exact color palette from image */
+  --color-primary: #ffffff;              /* CTA button bg (white) */
+  --color-primary-content: #2a2358;      /* CTA text (main background) */
+  --color-secondary: #3e3867;            /* Input field bg */
+  --color-secondary-content: #a99bb8;    /* Input placeholder / muted purple */
+  --color-accent: #8b7ea3;               /* Muted accent (icons, secondary text) */
+  --color-accent-content: #ffffff;
+  --color-neutral: #a99bb8;              /* Light text */
+  --color-neutral-content: #2a2358;
+  --color-base-100: #2a2358;             /* Main background */
+  --color-base-200: #3e3867;             /* Input backgrounds */
+  --color-base-300: #4f4a73;             /* Lighter inputs */
+  --color-base-content: #ffffff;         /* Main text color (white) */
+  --color-info: #8b7ea3;
   --color-success: #34eeb6;
   --color-warning: #ffcf72;
   --color-error: #ff8863;
@@ -67,14 +66,6 @@
   --tt-bg: var(--color-primary);
 }
 
-/*
-  The default border color has changed to `currentColor` in Tailwind CSS v4,
-  so we've added these compatibility styles to make sure everything still
-  looks the same as it did with Tailwind CSS v3.
-
-  If we ever want to remove these styles, we need to add an explicit border
-  color utility to any element that depends on these defaults.
-*/
 @layer base {
   *,
   ::after,
@@ -90,6 +81,7 @@
 
   body {
     min-height: 100vh;
+    background: linear-gradient(135deg, #2a2358 0%, #3e3867 50%, #4f4a73 100%);
   }
 
   h1,
@@ -103,21 +95,171 @@
 
 :root,
 [data-theme] {
-  background: var(--color-base-200);
+  background: linear-gradient(135deg, #2a2358 0%, #3e3867 50%, #4f4a73 100%);
 }
 
+/* Enhanced Button Styles */
 .btn {
-  @apply shadow-md;
+  @apply shadow-lg transition-all duration-200 ease-in-out;
+  border-radius: 12px;
+  font-weight: 600;
+  letter-spacing: 0.025em;
+}
+
+.btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+}
+
+.btn-primary {
+  background: #ffffff;
+  color: #2a2358;
+  border: none;
+}
+
+.btn-primary:hover {
+  background: #f8f9fa;
+  color: #2a2358;
 }
 
 .btn.btn-ghost {
   @apply shadow-none;
 }
 
+/* Input Field Styles */
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="number"],
+input[type="tel"],
+input[type="url"],
+input[type="search"],
+input[type="date"],
+input[type="time"],
+input[type="datetime-local"],
+select,
+textarea {
+  background: rgba(62, 56, 103, 0.8);
+  border: 1px solid rgba(139, 126, 163, 0.3);
+  border-radius: 12px;
+  color: #ffffff;
+  padding: 12px 16px;
+  font-size: 14px;
+  transition: all 0.2s ease-in-out;
+  backdrop-filter: blur(10px);
+}
+
+input[type="text"]:focus,
+input[type="email"]:focus,
+input[type="password"]:focus,
+input[type="number"]:focus,
+input[type="tel"]:focus,
+input[type="url"]:focus,
+input[type="search"]:focus,
+input[type="date"]:focus,
+input[type="time"]:focus,
+input[type="datetime-local"]:focus,
+select:focus,
+textarea:focus {
+  background: rgba(79, 74, 115, 0.95);
+  border-color: rgba(255, 255, 255, 0.4);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.1);
+  outline: none;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: rgba(169, 155, 184, 0.7);
+  font-weight: 400;
+}
+
+/* DaisyUI Input Override */
+.input {
+  background: rgba(62, 56, 103, 0.8);
+  border: 1px solid rgba(139, 126, 163, 0.3);
+  border-radius: 12px;
+  color: #ffffff;
+  backdrop-filter: blur(10px);
+}
+
+.input:focus {
+  background: rgba(79, 74, 115, 0.95);
+  border-color: rgba(255, 255, 255, 0.4);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.1);
+}
+
+/* Select Dropdown Styles */
+.select {
+  background: rgba(62, 56, 103, 0.8);
+  border: 1px solid rgba(139, 126, 163, 0.3);
+  border-radius: 12px;
+  color: #ffffff;
+  backdrop-filter: blur(10px);
+}
+
+.select:focus {
+  background: rgba(79, 74, 115, 0.95);
+  border-color: rgba(255, 255, 255, 0.4);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.1);
+}
+
+/* Textarea Styles */
+.textarea {
+  background: rgba(62, 56, 103, 0.8);
+  border: 1px solid rgba(139, 126, 163, 0.3);
+  border-radius: 12px;
+  color: #ffffff;
+  backdrop-filter: blur(10px);
+  resize: vertical;
+}
+
+.textarea:focus {
+  background: rgba(79, 74, 115, 0.95);
+  border-color: rgba(255, 255, 255, 0.4);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.1);
+}
+
+/* Card and Container Styles */
+.card {
+  background: rgba(62, 56, 103, 0.7);
+  backdrop-filter: blur(15px);
+  border: 1px solid rgba(139, 126, 163, 0.2);
+  border-radius: 16px;
+}
+
+/* Link Styles */
 .link {
   text-underline-offset: 2px;
+  color: #a99bb8;
 }
 
 .link:hover {
   opacity: 80%;
+  color: #ffffff;
+}
+
+/* Form Control Styles */
+.form-control label {
+  color: #a99bb8;
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+
+/* Toggle and Checkbox Styles */
+.toggle {
+  border-color: rgba(139, 126, 163, 0.4);
+}
+
+.toggle:checked {
+  background-color: #ffffff;
+  border-color: #ffffff;
+}
+
+.checkbox {
+  border-color: rgba(139, 126, 163, 0.4);
+}
+
+.checkbox:checked {
+  background-color: #ffffff;
+  border-color: #ffffff;
 }
