@@ -29,7 +29,7 @@ const Header = () => {
             </Link>
 
             <Link
-              href="/discover"
+              href="/debug"
               className="flex items-center space-x-3 transition-colors text-white/50 hover:text-white"
             >
               <MapIcon className="w-6 h-6" strokeWidth={2} />
