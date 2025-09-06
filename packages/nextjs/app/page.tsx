@@ -6,6 +6,7 @@ import Link from "next/link";
 import type { NextPage } from "next";
 import { useScaffoldReadContract } from "~~/hooks/scaffold-eth";
 import { formatDateTime, isEventLive, safeParseEventData } from "~~/utils/eventUtils";
+import { getEventImage } from "~~/utils/imageUtils";
 import { getRandomOrganizer, getRandomVenue } from "~~/utils/mockData";
 
 const Home: NextPage = () => {
@@ -73,7 +74,7 @@ const Home: NextPage = () => {
     const isLive = isEventLive(parsedEvent.startTime, parsedEvent.endTime);
     const venue = getRandomVenue();
     const organizerName = getRandomOrganizer();
-    const randomImageId = Math.floor(Math.random() * 1000) + 1;
+    const eventImage = getEventImage(eventId);
 
     return (
       <Link href={`/events/${eventId}`} className="block">
@@ -82,7 +83,7 @@ const Home: NextPage = () => {
             {/* Event Image */}
             <div className="relative">
               <Image
-                src={`https://picsum.photos/500/300?random=${randomImageId}`}
+                src={eventImage}
                 alt="Event image"
                 width={500}
                 height={300}

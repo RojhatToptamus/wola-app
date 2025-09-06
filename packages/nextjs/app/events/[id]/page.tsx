@@ -15,6 +15,7 @@ import {
   isOrganizer,
   safeParseEventData,
 } from "~~/utils/eventUtils";
+import { getEventImage } from "~~/utils/imageUtils";
 import { getOrganizerForEvent, getVenueForEvent } from "~~/utils/mockData";
 
 // Types for policy data
@@ -315,7 +316,7 @@ const EventDetailPage = () => {
   const { time: endTime } = formatDateTime(parsedEvent.endTime);
   const isLive = isEventLive(parsedEvent.startTime, parsedEvent.endTime);
   const userRegStatus = userRegistration ? getRegistrationStatusText() : "Not Registered";
-  const randomImageId = parseInt(params?.id as string) * 17; // Consistent image for each event
+  const eventImage = getEventImage(params?.id as string);
 
   return (
     <div className="min-h-screen p-6">
@@ -335,7 +336,7 @@ const EventDetailPage = () => {
           <div className="flex items-start justify-center">
             <div className="relative w-full max-w-[600px]">
               <Image
-                src={`https://picsum.photos/600/400?random=${randomImageId}`}
+                src={eventImage}
                 alt="Event image"
                 width={600}
                 height={400}
