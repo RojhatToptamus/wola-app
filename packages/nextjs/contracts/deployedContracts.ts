@@ -7,7 +7,7 @@ import { GenericContractsDeclaration } from "~~/utils/scaffold-eth/contract";
 const deployedContracts = {
   11155931: {
     EventManager: {
-      address: "0x2209529450941ea837A013B0d5ec90E862a1b957",
+      address: "0x7d0B0B6E535eaF6Be1a448FE07797E0A6fBEB9b1",
       abi: [
         {
           inputs: [
@@ -63,37 +63,6 @@ const deployedContracts = {
             },
           ],
           name: "AccountCreated",
-          type: "event",
-        },
-        {
-          anonymous: false,
-          inputs: [
-            {
-              indexed: false,
-              internalType: "uint256",
-              name: "minDeposit",
-              type: "uint256",
-            },
-            {
-              indexed: false,
-              internalType: "uint256",
-              name: "maxDeposit",
-              type: "uint256",
-            },
-            {
-              indexed: false,
-              internalType: "uint256",
-              name: "minBond",
-              type: "uint256",
-            },
-            {
-              indexed: false,
-              internalType: "uint256",
-              name: "maxBond",
-              type: "uint256",
-            },
-          ],
-          name: "BoundsUpdated",
           type: "event",
         },
         {
@@ -332,6 +301,19 @@ const deployedContracts = {
           type: "function",
         },
         {
+          inputs: [],
+          name: "attendeeDepositAmount",
+          outputs: [
+            {
+              internalType: "uint256",
+              name: "",
+              type: "uint256",
+            },
+          ],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
           inputs: [
             {
               internalType: "address",
@@ -344,34 +326,6 @@ const deployedContracts = {
             {
               internalType: "uint256",
               name: "",
-              type: "uint256",
-            },
-          ],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [],
-          name: "bounds",
-          outputs: [
-            {
-              internalType: "uint256",
-              name: "minDeposit",
-              type: "uint256",
-            },
-            {
-              internalType: "uint256",
-              name: "maxDeposit",
-              type: "uint256",
-            },
-            {
-              internalType: "uint256",
-              name: "minBond",
-              type: "uint256",
-            },
-            {
-              internalType: "uint256",
-              name: "maxBond",
               type: "uint256",
             },
           ],
@@ -471,14 +425,9 @@ const deployedContracts = {
         {
           inputs: [
             {
-              internalType: "uint256",
-              name: "_deposit",
-              type: "uint256",
-            },
-            {
-              internalType: "uint256",
-              name: "_bond",
-              type: "uint256",
+              internalType: "string",
+              name: "_description",
+              type: "string",
             },
             {
               internalType: "uint64",
@@ -489,11 +438,6 @@ const deployedContracts = {
               internalType: "uint64",
               name: "_endTime",
               type: "uint64",
-            },
-            {
-              internalType: "uint16",
-              name: "_minAttendanceBps",
-              type: "uint16",
             },
             {
               internalType: "uint32",
@@ -528,14 +472,9 @@ const deployedContracts = {
               type: "address",
             },
             {
-              internalType: "uint256",
-              name: "deposit",
-              type: "uint256",
-            },
-            {
-              internalType: "uint256",
-              name: "bond",
-              type: "uint256",
+              internalType: "string",
+              name: "description",
+              type: "string",
             },
             {
               internalType: "uint64",
@@ -546,11 +485,6 @@ const deployedContracts = {
               internalType: "uint64",
               name: "endTime",
               type: "uint64",
-            },
-            {
-              internalType: "uint16",
-              name: "minAttendanceBps",
-              type: "uint16",
             },
             {
               internalType: "uint32",
@@ -641,14 +575,9 @@ const deployedContracts = {
               type: "address",
             },
             {
-              internalType: "uint256",
-              name: "deposit",
-              type: "uint256",
-            },
-            {
-              internalType: "uint256",
-              name: "bond",
-              type: "uint256",
+              internalType: "string",
+              name: "description",
+              type: "string",
             },
             {
               internalType: "uint64",
@@ -659,11 +588,6 @@ const deployedContracts = {
               internalType: "uint64",
               name: "endTime",
               type: "uint64",
-            },
-            {
-              internalType: "uint16",
-              name: "minAttendanceBps",
-              type: "uint16",
             },
             {
               internalType: "uint32",
@@ -782,7 +706,33 @@ const deployedContracts = {
         },
         {
           inputs: [],
+          name: "minAttendanceRatio",
+          outputs: [
+            {
+              internalType: "uint16",
+              name: "",
+              type: "uint16",
+            },
+          ],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [],
           name: "nextEventId",
+          outputs: [
+            {
+              internalType: "uint256",
+              name: "",
+              type: "uint256",
+            },
+          ],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "organizerBondAmount",
           outputs: [
             {
               internalType: "uint256",
@@ -871,26 +821,37 @@ const deployedContracts = {
           inputs: [
             {
               internalType: "uint256",
-              name: "_minDeposit",
-              type: "uint256",
-            },
-            {
-              internalType: "uint256",
-              name: "_maxDeposit",
-              type: "uint256",
-            },
-            {
-              internalType: "uint256",
-              name: "_minBond",
-              type: "uint256",
-            },
-            {
-              internalType: "uint256",
-              name: "_maxBond",
+              name: "_deposit",
               type: "uint256",
             },
           ],
-          name: "setBounds",
+          name: "setAttendeeDepositAmount",
+          outputs: [],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [
+            {
+              internalType: "uint16",
+              name: "_ratio",
+              type: "uint16",
+            },
+          ],
+          name: "setMinAttendanceRatio",
+          outputs: [],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [
+            {
+              internalType: "uint256",
+              name: "_bond",
+              type: "uint256",
+            },
+          ],
+          name: "setOrganizerBondAmount",
           outputs: [],
           stateMutability: "nonpayable",
           type: "function",
@@ -962,7 +923,7 @@ const deployedContracts = {
         renounceOwnership: "@openzeppelin/contracts/access/Ownable.sol",
         transferOwnership: "@openzeppelin/contracts/access/Ownable.sol",
       },
-      deployedOnBlock: 22074217,
+      deployedOnBlock: 22088621,
     },
     MockUSDC: {
       address: "0x617E9308eb2eBc07be4F62bC4b284c45EfF39907",
