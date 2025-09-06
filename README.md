@@ -18,7 +18,11 @@ yarn start
 ## Wallet & Onboarding
 The app uses a passkey-based embedded wallet. No extensions. No seed phrases. Users can sign up in seconds with a platform-native passkey and start interacting right away. This keeps onboarding smooth and consistent across devices.
 
-**Note on World ID:** privacy-preserving verification is on the roadmap. Today we don't enable it because World ID doesn't have a Rise bridge yet; once that lands, we'll wire it in as an optional check.
+To participate, users must first visit the [register page](https://wola-app-nextjs.vercel.app/register) and register using Rise wallet with their passkey - transaction fees are covered during this process.
+
+**Note on World ID:** Pending implementation due to no Rise bridge.
+
+**Note on POAPs:** Currently unsupported. Custom NFTs available as alternative for tracking event participation.
 
 ## About the Application
 

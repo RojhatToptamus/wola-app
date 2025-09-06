@@ -160,7 +160,7 @@ const EventManagePage = () => {
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <div className="text-white text-lg mb-4">Event not found</div>
-          <Link href="/events" className="btn btn-primary">
+          <Link href="/" className="btn btn-primary">
             Back to Events
           </Link>
         </div>
