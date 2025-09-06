@@ -7,7 +7,7 @@ import { GenericContractsDeclaration } from "~~/utils/scaffold-eth/contract";
 const deployedContracts = {
   11155931: {
     EventManager: {
-      address: "0x7d0B0B6E535eaF6Be1a448FE07797E0A6fBEB9b1",
+      address: "0x1A57103376CE66B4bFA167C24d6f6392E789B0e8",
       abi: [
         {
           inputs: [
@@ -121,19 +121,6 @@ const deployedContracts = {
             },
           ],
           name: "EventCreated",
-          type: "event",
-        },
-        {
-          anonymous: false,
-          inputs: [
-            {
-              indexed: true,
-              internalType: "uint256",
-              name: "eventId",
-              type: "uint256",
-            },
-          ],
-          name: "EventPublished",
           type: "event",
         },
         {
@@ -792,19 +779,6 @@ const deployedContracts = {
               type: "uint256",
             },
           ],
-          name: "publishEvent",
-          outputs: [],
-          stateMutability: "nonpayable",
-          type: "function",
-        },
-        {
-          inputs: [
-            {
-              internalType: "uint256",
-              name: "_eventId",
-              type: "uint256",
-            },
-          ],
           name: "registerForEvent",
           outputs: [],
           stateMutability: "nonpayable",
@@ -923,7 +897,7 @@ const deployedContracts = {
         renounceOwnership: "@openzeppelin/contracts/access/Ownable.sol",
         transferOwnership: "@openzeppelin/contracts/access/Ownable.sol",
       },
-      deployedOnBlock: 22088621,
+      deployedOnBlock: 22103802,
     },
     MockUSDC: {
       address: "0x617E9308eb2eBc07be4F62bC4b284c45EfF39907",

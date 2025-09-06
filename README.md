@@ -1,80 +1,69 @@
-# 🏗 Scaffold-ETH 2
+# Wola Events — README
 
-<h4 align="center">
-  <a href="https://docs.scaffoldeth.io">Documentation</a> |
-  <a href="https://scaffoldeth.io">Website</a>
-</h4>
+## Getting Started
 
-🧪 An open-source, up-to-date toolkit for building decentralized applications (dapps) on the Ethereum blockchain. It's designed to make it easier for developers to create and deploy smart contracts and build user interfaces that interact with those contracts.
+### Prerequisites
+- Node.js ≥ 18 and Yarn
+- An RPC endpoint for your target network (e.g., Rise Testnet)
+- Deployed **EventManager** contract and an ERC-20 token address (used for deposits/bonds)
 
-⚙️ Built using NextJS, RainbowKit, Hardhat, Wagmi, Viem, and Typescript.
-
-- ✅ **Contract Hot Reload**: Your frontend auto-adapts to your smart contract as you edit it.
-- 🪝 **[Custom hooks](https://docs.scaffoldeth.io/hooks/)**: Collection of React hooks wrapper around [wagmi](https://wagmi.sh/) to simplify interactions with smart contracts with typescript autocompletion.
-- 🧱 [**Components**](https://docs.scaffoldeth.io/components/): Collection of common web3 components to quickly build your frontend.
-- 🔥 **Burner Wallet & Local Faucet**: Quickly test your application with a burner wallet and local faucet.
-- 🔐 **Integration with Wallet Providers**: Connect to different wallet providers and interact with the Ethereum network.
-
-![Debug Contracts tab](https://github.com/scaffold-eth/scaffold-eth-2/assets/55535804/b237af0c-5027-4849-a5c1-2e31495cccb1)
-
-## Requirements
-
-Before you begin, you need to install the following tools:
-
-- [Node (>= v20.18.3)](https://nodejs.org/en/download/)
-- Yarn ([v1](https://classic.yarnpkg.com/en/docs/install/) or [v2+](https://yarnpkg.com/getting-started/install))
-- [Git](https://git-scm.com/downloads)
-
-## Quickstart
-
-To get started with Scaffold-ETH 2, follow the steps below:
-
-1. Install dependencies if it was skipped in CLI:
-
-```
-cd my-dapp-example
+### Install & Run
+```bash
+# install deps
 yarn install
-```
-
-2. Run a local network in the first terminal:
-
-```
-yarn chain
-```
-
-This command starts a local Ethereum network using Hardhat. The network runs on your local machine and can be used for testing and development. You can customize the network configuration in `packages/hardhat/hardhat.config.ts`.
-
-3. On a second terminal, deploy the test contract:
-
-```
-yarn deploy
-```
-
-This command deploys a test smart contract to the local network. The contract is located in `packages/hardhat/contracts` and can be modified to suit your needs. The `yarn deploy` command uses the deploy script located in `packages/hardhat/deploy` to deploy the contract to the network. You can also customize the deploy script.
-
-4. On a third terminal, start your NextJS app:
-
-```
+# run the app
 yarn start
 ```
 
-Visit your app on: `http://localhost:3000`. You can interact with your smart contract using the `Debug Contracts` page. You can tweak the app config in `packages/nextjs/scaffold.config.ts`.
+## Wallet & Onboarding
+The app uses a passkey-based embedded wallet. No extensions. No seed phrases. Users can sign up in seconds with a platform-native passkey and start interacting right away. This keeps onboarding smooth and consistent across devices.
 
-Run smart contract test with `yarn hardhat:test`
+**Note on World ID:** privacy-preserving verification is on the roadmap. Today we don't enable it because World ID doesn't have a Rise bridge yet; once that lands, we'll wire it in as an optional check.
 
-- Edit your smart contracts in `packages/hardhat/contracts`
-- Edit your frontend homepage at `packages/nextjs/app/page.tsx`. For guidance on [routing](https://nextjs.org/docs/app/building-your-application/routing/defining-routes) and configuring [pages/layouts](https://nextjs.org/docs/app/building-your-application/routing/pages-and-layouts) checkout the Next.js documentation.
-- Edit your deployment scripts in `packages/hardhat/deploy`
+## About the Application
+
+### What it is
+Wola is a decentralized event platform that ensures genuine attendance through financial commitment. Participants put down a deposit when registering for events, which they forfeit if they don't attend these forfeited funds are then shared among actual attendees. Event organizers also stake a bond and must meet minimum attendance thresholds to avoid penalties.
+
+### Why it exists (and how it's different)
+- **Skin-in-the-game:** deposits/bonds create real commitment on both sides.
+- **Fair redistribution:** no-show penalties reward actual attendees.
+- **Trustless & transparent:** funds are held and settled on-chain, and everyone claims directly—no middleman.
+- **Proof of humanity(Pending)**: prevents sybil attacks and fake registrations (pending implementation due to World ID not having a Rise bridge yet).
+
+### Core Flow
+1. **Create account** (one click with passkey wallet).
+2. **Create event** (organizer locks a bond).
+3. **Register** (participant locks a deposit; capacity-aware; registration open until start).
+4. **Cancel with policy:**
+   - Full refund if > `fullRefundHours` before start
+   - Partial refund if > `partialRefundHours` (at `partialRefundPercent`%)
+   - No refund close to start
+5. **Check-in** (organizer marks attendees; non-attendees become no-shows).
+6. **Complete event** (anyone after a deadline if organizer doesn't):
+   - If attendance ≥ `minAttendanceRatio` (basis points), organizer bond is refunded.
+   - Otherwise a proportional penalty is taken from the bond and added to the forfeit pool.
+   - Forfeit pool splits by policy: `attendeeSharePercent` to attendees; the rest to organizer.
+7. **Claim & Withdraw:**
+   - Attendees claim deposit + reward share.
+   - Organizer claims bond/refunds.
+   - Users withdraw to their wallet anytime.
+
+### Contract (EventManager) highlights
+- **Globals:** `attendeeDepositAmount`, `organizerBondAmount`, `minAttendanceRatio` (bps), policy`{ fullRefundHours, partialRefundHours, partialRefundPercent, attendeeSharePercent }`
+- **States:** Published → (Canceled | Completed) with check-in and settlement.
 
 
-## Documentation
+## Screenshots / Images
 
-Visit our [docs](https://docs.scaffoldeth.io) to learn how to start building with Scaffold-ETH 2.
+### Event creation page
+![Event creation page](packages/nextjs/public/app_images/event-creation.png)
 
-To know more about its features, check out our [website](https://scaffoldeth.io).
+### Admin event management page
+![Admin event management](packages/nextjs/public/app_images/event-management-page.png)
 
-## Contributing to Scaffold-ETH 2
+### User registered view — cancellation disabled (period expired)
+![Late cancellation — no refund](packages/nextjs/public/app_images/after_cancellation-period.png)
 
-We welcome contributions to Scaffold-ETH 2!
-
-Please see [CONTRIBUTING.MD](https://github.com/scaffold-eth/scaffold-eth-2/blob/main/CONTRIBUTING.md) for more information and guidelines for contributing to Scaffold-ETH 2.
+### Early cancellation — full refund available
+![Early cancellation — full refund](packages/nextjs/public/app_images/before-cancellation-period.png)
