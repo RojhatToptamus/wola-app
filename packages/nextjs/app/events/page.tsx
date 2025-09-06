@@ -1,37 +1,13 @@
-/* eslint-disable @typescript-eslint/no-unused-expressions */
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useScaffoldReadContract } from "~~/hooks/scaffold-eth";
-
-// Mock data for venues and organizers
-const mockVenues = [
-  "Terminal Kadıköy",
-  "Zorlu Center",
-  "Galataport",
-  "İTÜ Ayazağa Kampüsü",
-  "Boğaziçi Üniversitesi",
-  "Nişantaşı",
-  "Beyoğlu Kültür Merkezi",
-  "Kadıköy Sahil",
-];
-
-const mockOrganizers = [
-  "MetaMask Ambassadors",
-  "Consensys",
-  "Paribu",
-  "Hyperter",
-  "Linea",
-  "Coinbase",
-  "BuidlGuidl Istanbul",
-  "Web3 Türkiye",
-];
+import { getRandomOrganizer, getRandomVenue } from "~~/utils/mockData";
 
 const EventsListPage = () => {
   const [eventCount, setEventCount] = useState(0);
-  const [events, setEvents] = useState<any[]>([]);
 
   // Get the next event ID to know how many events exist
   const { data: nextEventId } = useScaffoldReadContract({
@@ -52,37 +28,33 @@ const EventsListPage = () => {
     }
   }, [nextEventId]);
 
-  // Mock function to get random venue and organizer
-  const getRandomVenue = () => mockVenues[Math.floor(Math.random() * mockVenues.length)];
-  const getRandomOrganizer = () => mockOrganizers[Math.floor(Math.random() * mockOrganizers.length)];
-
   // Format timestamp to readable date/time
   const formatDateTime = (timestamp: bigint) => {
     const date = new Date(Number(timestamp) * 1000);
     const today = new Date();
     const isToday = date.toDateString() === today.toDateString();
-    
+
     if (isToday) {
       return {
         date: "Today",
-        time: date.toLocaleTimeString('en-US', { 
-          hour: 'numeric', 
-          minute: '2-digit',
-          hour12: true 
+        time: date.toLocaleTimeString("en-US", {
+          hour: "numeric",
+          minute: "2-digit",
+          hour12: true,
         }),
       };
     }
-    
+
     return {
-      date: date.toLocaleDateString('en-US', { 
-        weekday: 'long', 
-        month: 'short', 
-        day: 'numeric' 
+      date: date.toLocaleDateString("en-US", {
+        weekday: "long",
+        month: "short",
+        day: "numeric",
       }),
-      time: date.toLocaleTimeString('en-US', { 
-        hour: 'numeric', 
-        minute: '2-digit',
-        hour12: true 
+      time: date.toLocaleTimeString("en-US", {
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
       }),
     };
   };
@@ -122,19 +94,27 @@ const EventsListPage = () => {
 
     // Parse the tuple data correctly
     const [
-      organizerAddress,    // address
-      description,         // string
-      startTimestamp,      // uint64
-      endTimestamp,        // uint64
-      capacity,           // uint32
-      status,             // EventStatus enum
-      published,          // bool
-      bondReleased,       // bool
-      checkInClosed,      // bool
-      confirmedCount,     // uint32
-      attendedCount,      // uint32
-      forfeitPool,        // uint256
-      rewardPerAttendee   // uint256
+      ,
+      // organizerAddress
+      description, // string
+      startTimestamp, // uint64
+      endTimestamp, // uint64
+      capacity, // uint32
+      ,
+      ,
+      ,
+      ,
+      // status
+      // published
+      // bondReleased
+      // checkInClosed
+      confirmedCount, // uint32
+      // attendedCount
+      // forfeitPool
+      // rewardPerAttendee
+      ,
+      ,
+      ,
     ] = eventData;
 
     const { date, time } = formatDateTime(startTimestamp);
@@ -156,7 +136,7 @@ const EventsListPage = () => {
                 height={300}
                 className="w-full h-48 object-cover rounded-t-xl"
               />
-              
+
               {/* Live indicator */}
               {isLive && (
                 <div className="absolute top-4 left-4 flex items-center gap-2 bg-red-500/90 text-white px-3 py-1 rounded-full text-sm font-medium backdrop-blur-sm">
@@ -164,7 +144,7 @@ const EventsListPage = () => {
                   LIVE
                 </div>
               )}
-              
+
               {/* Date/Time badge */}
               <div className="absolute top-4 right-4 bg-black/60 text-white px-3 py-2 rounded-xl text-sm font-medium backdrop-blur-sm">
                 <div className="text-xs opacity-80">{date}</div>
@@ -175,9 +155,7 @@ const EventsListPage = () => {
             {/* Event Content */}
             <div className="p-6">
               {/* Event Title/Description */}
-              <h3 className="text-xl font-bold text-white mb-3 line-clamp-2">
-                {description || "Untitled Event"}
-              </h3>
+              <h3 className="text-xl font-bold text-white mb-3 line-clamp-2">{description || "Untitled Event"}</h3>
 
               {/* Organizer */}
               <div className="flex items-center gap-3 mb-3">
@@ -227,9 +205,7 @@ const EventsListPage = () => {
                   </div>
 
                   {/* Going indicator */}
-                  <div className="bg-green-500/20 text-green-400 px-2 py-1 rounded-full text-xs font-medium">
-                    Going
-                  </div>
+                  <div className="bg-green-500/20 text-green-400 px-2 py-1 rounded-full text-xs font-medium">Going</div>
                 </div>
 
                 {/* Stake requirement */}
@@ -277,10 +253,7 @@ const EventsListPage = () => {
         ) : (
           <div className="text-center py-12">
             <div className="text-white/60 text-lg mb-4">No events found</div>
-            <Link 
-              href="/create-event"
-              className="btn btn-primary"
-            >
+            <Link href="/create-event" className="btn btn-primary">
               Create First Event
             </Link>
           </div>
