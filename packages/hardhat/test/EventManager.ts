@@ -18,7 +18,6 @@ describe("EventManager", function () {
   const DEPOSIT_AMOUNT = ethers.parseUnits("1", 18);
   const BOND_AMOUNT = ethers.parseUnits("10", 18);
   const CAPACITY = 3n;
-  const MIN_ATTENDANCE_BPS = 6000; // 60%
 
   beforeEach(async function () {
     [owner, organizer, participant1, participant2, participant3] = await ethers.getSigners();
@@ -54,6 +53,17 @@ describe("EventManager", function () {
 
       await eventManager.setOrganizerBondAmount(newBond);
       expect(await eventManager.organizerBondAmount()).to.equal(newBond);
+    });
+
+    it("Should set minimum attendance ratio correctly", async function () {
+      const newRatio = 4000; // 40%
+
+      await eventManager.setMinAttendanceRatio(newRatio);
+      expect(await eventManager.minAttendanceRatio()).to.equal(newRatio);
+    });
+
+    it("Should reject invalid attendance ratio", async function () {
+      await expect(eventManager.setMinAttendanceRatio(10001)).to.be.revertedWith("Ratio cannot exceed 100%");
     });
 
     it("Should update policy correctly", async function () {
@@ -106,11 +116,7 @@ describe("EventManager", function () {
     it("Should create and publish event successfully", async function () {
       const initialBalance = await mockUSDC.balanceOf(organizer.address);
 
-      await expect(
-        eventManager
-          .connect(organizer)
-          .createEvent("Test Event Description", startTime, endTime, MIN_ATTENDANCE_BPS, CAPACITY),
-      )
+      await expect(eventManager.connect(organizer).createEvent("Test Event Description", startTime, endTime, CAPACITY))
         .to.emit(eventManager, "EventCreated")
         .withArgs(1, organizer.address);
 
@@ -128,15 +134,13 @@ describe("EventManager", function () {
     it("Should validate event parameters", async function () {
       const pastTime = (await time.latest()) - 3600;
       await expect(
-        eventManager.connect(organizer).createEvent("Test Event", pastTime, endTime, MIN_ATTENDANCE_BPS, CAPACITY),
+        eventManager.connect(organizer).createEvent("Test Event", pastTime, endTime, CAPACITY),
       ).to.be.revertedWith("Start time must be in future");
     });
 
     describe("Registration and Participation", function () {
       beforeEach(async function () {
-        await eventManager
-          .connect(organizer)
-          .createEvent("Test Event Description", startTime, endTime, MIN_ATTENDANCE_BPS, CAPACITY);
+        await eventManager.connect(organizer).createEvent("Test Event Description", startTime, endTime, CAPACITY);
         eventId = 1;
         await eventManager.connect(organizer).publishEvent(eventId);
       });
@@ -240,7 +244,7 @@ describe("EventManager", function () {
             .withArgs(eventId);
 
           // Check organizer gets bond back + share of forfeits
-          // Attendance: 2/3 = 66.67%, which meets 60% minimum
+          // Attendance: 2/3 = 66.67%, which meets 30% minimum
           // Forfeit pool: 1 no-show * DEPOSIT_AMOUNT
           const policy = await eventManager.policy();
           const forfeitPool = DEPOSIT_AMOUNT;
@@ -265,15 +269,12 @@ describe("EventManager", function () {
 
           await eventManager.connect(organizer).completeEvent(eventId);
 
-          // Attendance: 1/3 = 33.33%, which is below 60% minimum
-          // Organizer should be penalized
-          const attendanceRate = 3333; // 33.33% in basis points
-          const shortfall = MIN_ATTENDANCE_BPS - attendanceRate;
-          const penalty = (BOND_AMOUNT * BigInt(shortfall)) / 10000n;
-          const bondAfterPenalty = BOND_AMOUNT - penalty;
+          // Attendance: 1/3 = 33.33%, which is above 30% minimum
+          // Organizer should get full bond refund (no penalty)
+          const bondAfterPenalty = BOND_AMOUNT; // Full bond refund
 
-          // Forfeit pool: 2 no-shows + bond penalty
-          const forfeitPool = 2n * DEPOSIT_AMOUNT + penalty;
+          // Forfeit pool: 2 no-shows (no bond penalty)
+          const forfeitPool = 2n * DEPOSIT_AMOUNT;
           const policy = await eventManager.policy();
           const organizerShare = (forfeitPool * BigInt(100n - policy.attendeeSharePercent)) / 100n;
 
@@ -334,9 +335,7 @@ describe("EventManager", function () {
       const startTime = (await time.latest()) + 3600;
       const endTime = startTime + 3600;
 
-      await eventManager
-        .connect(organizer)
-        .createEvent("Test Event Description", startTime, endTime, MIN_ATTENDANCE_BPS, CAPACITY);
+      await eventManager.connect(organizer).createEvent("Test Event Description", startTime, endTime, CAPACITY);
       eventId = 1;
       await eventManager.connect(organizer).publishEvent(eventId);
     });
@@ -419,6 +418,7 @@ describe("EventManager", function () {
     it("Should return correct global values and policy", async function () {
       expect(await eventManager.attendeeDepositAmount()).to.equal(ethers.parseUnits("1", 18));
       expect(await eventManager.organizerBondAmount()).to.equal(ethers.parseUnits("10", 18));
+      expect(await eventManager.minAttendanceRatio()).to.equal(3000);
 
       const policy = await eventManager.policy();
       expect(policy.fullRefundHours).to.equal(24);

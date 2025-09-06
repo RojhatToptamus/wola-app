@@ -42,18 +42,18 @@
   name: "dark";
 
   /* 🎨 Exact color palette from image */
-  --color-primary: #ffffff;              /* CTA button bg (white) */
-  --color-primary-content: #2a2358;      /* CTA text (main background) */
-  --color-secondary: #3e3867;            /* Input field bg */
-  --color-secondary-content: #a99bb8;    /* Input placeholder / muted purple */
-  --color-accent: #8b7ea3;               /* Muted accent (icons, secondary text) */
+  --color-primary: #ffffff; /* CTA button bg (white) */
+  --color-primary-content: #2a2358; /* CTA text (main background) */
+  --color-secondary: #3e3867; /* Input field bg */
+  --color-secondary-content: #a99bb8; /* Input placeholder / muted purple */
+  --color-accent: #8b7ea3; /* Muted accent (icons, secondary text) */
   --color-accent-content: #ffffff;
-  --color-neutral: #a99bb8;              /* Light text */
+  --color-neutral: #a99bb8; /* Light text */
   --color-neutral-content: #2a2358;
-  --color-base-100: #2a2358;             /* Main background */
-  --color-base-200: #3e3867;             /* Input backgrounds */
-  --color-base-300: #4f4a73;             /* Lighter inputs */
-  --color-base-content: #ffffff;         /* Main text color (white) */
+  --color-base-100: #2a2358; /* Main background */
+  --color-base-200: #3e3867; /* Input backgrounds */
+  --color-base-300: #4f4a73; /* Lighter inputs */
+  --color-base-content: #ffffff; /* Main text color (white) */
   --color-info: #8b7ea3;
   --color-success: #34eeb6;
   --color-warning: #ffcf72;
