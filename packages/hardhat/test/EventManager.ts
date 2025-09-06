@@ -15,9 +15,9 @@ describe("EventManager", function () {
   let participant3: SignerWithAddress;
 
   // Test constants
-  const DEPOSIT_AMOUNT = ethers.parseUnits("10", 18);
-  const BOND_AMOUNT = ethers.parseUnits("50", 18);
-  const CAPACITY = 3;
+  const DEPOSIT_AMOUNT = ethers.parseUnits("1", 18);
+  const BOND_AMOUNT = ethers.parseUnits("10", 18);
+  const CAPACITY = 3n;
   const MIN_ATTENDANCE_BPS = 6000; // 60%
 
   beforeEach(async function () {
@@ -42,21 +42,18 @@ describe("EventManager", function () {
   });
 
   describe("Admin Functions", function () {
-    it("Should set bounds correctly", async function () {
-      const newMinDeposit = ethers.parseUnits("5", 18);
-      const newMaxDeposit = ethers.parseUnits("500", 18);
-      const newMinBond = ethers.parseUnits("25", 18);
-      const newMaxBond = ethers.parseUnits("5000", 18);
+    it("Should set attendee deposit amount correctly", async function () {
+      const newDeposit = ethers.parseUnits("5", 18);
 
-      await expect(eventManager.setBounds(newMinDeposit, newMaxDeposit, newMinBond, newMaxBond))
-        .to.emit(eventManager, "BoundsUpdated")
-        .withArgs(newMinDeposit, newMaxDeposit, newMinBond, newMaxBond);
+      await eventManager.setAttendeeDepositAmount(newDeposit);
+      expect(await eventManager.attendeeDepositAmount()).to.equal(newDeposit);
+    });
 
-      const bounds = await eventManager.bounds();
-      expect(bounds.minDeposit).to.equal(newMinDeposit);
-      expect(bounds.maxDeposit).to.equal(newMaxDeposit);
-      expect(bounds.minBond).to.equal(newMinBond);
-      expect(bounds.maxBond).to.equal(newMaxBond);
+    it("Should set organizer bond amount correctly", async function () {
+      const newBond = ethers.parseUnits("25", 18);
+
+      await eventManager.setOrganizerBondAmount(newBond);
+      expect(await eventManager.organizerBondAmount()).to.equal(newBond);
     });
 
     it("Should update policy correctly", async function () {
@@ -69,10 +66,6 @@ describe("EventManager", function () {
       expect(policy.partialRefundHours).to.equal(6);
       expect(policy.partialRefundPercent).to.equal(75);
       expect(policy.attendeeSharePercent).to.equal(60);
-    });
-
-    it("Should reject invalid bounds", async function () {
-      await expect(eventManager.setBounds(100, 50, 25, 5000)).to.be.revertedWith("Invalid deposit bounds");
     });
 
     it("Should reject invalid policy", async function () {
@@ -116,7 +109,7 @@ describe("EventManager", function () {
       await expect(
         eventManager
           .connect(organizer)
-          .createEvent(DEPOSIT_AMOUNT, BOND_AMOUNT, startTime, endTime, MIN_ATTENDANCE_BPS, CAPACITY),
+          .createEvent("Test Event Description", startTime, endTime, MIN_ATTENDANCE_BPS, CAPACITY),
       )
         .to.emit(eventManager, "EventCreated")
         .withArgs(1, organizer.address);
@@ -133,21 +126,9 @@ describe("EventManager", function () {
     });
 
     it("Should validate event parameters", async function () {
-      await expect(
-        eventManager.connect(organizer).createEvent(0, BOND_AMOUNT, startTime, endTime, MIN_ATTENDANCE_BPS, CAPACITY),
-      ).to.be.revertedWith("Invalid deposit amount");
-
-      await expect(
-        eventManager
-          .connect(organizer)
-          .createEvent(DEPOSIT_AMOUNT, 0, startTime, endTime, MIN_ATTENDANCE_BPS, CAPACITY),
-      ).to.be.revertedWith("Invalid bond amount");
-
       const pastTime = (await time.latest()) - 3600;
       await expect(
-        eventManager
-          .connect(organizer)
-          .createEvent(DEPOSIT_AMOUNT, BOND_AMOUNT, pastTime, endTime, MIN_ATTENDANCE_BPS, CAPACITY),
+        eventManager.connect(organizer).createEvent("Test Event", pastTime, endTime, MIN_ATTENDANCE_BPS, CAPACITY),
       ).to.be.revertedWith("Start time must be in future");
     });
 
@@ -155,7 +136,7 @@ describe("EventManager", function () {
       beforeEach(async function () {
         await eventManager
           .connect(organizer)
-          .createEvent(DEPOSIT_AMOUNT, BOND_AMOUNT, startTime, endTime, MIN_ATTENDANCE_BPS, CAPACITY);
+          .createEvent("Test Event Description", startTime, endTime, MIN_ATTENDANCE_BPS, CAPACITY);
         eventId = 1;
         await eventManager.connect(organizer).publishEvent(eventId);
       });
@@ -355,7 +336,7 @@ describe("EventManager", function () {
 
       await eventManager
         .connect(organizer)
-        .createEvent(DEPOSIT_AMOUNT, BOND_AMOUNT, startTime, endTime, MIN_ATTENDANCE_BPS, CAPACITY);
+        .createEvent("Test Event Description", startTime, endTime, MIN_ATTENDANCE_BPS, CAPACITY);
       eventId = 1;
       await eventManager.connect(organizer).publishEvent(eventId);
     });
@@ -435,9 +416,9 @@ describe("EventManager", function () {
       expect(await eventManager.getUserBalance(participant1.address)).to.equal(0);
     });
 
-    it("Should return correct bounds and policy", async function () {
-      const bounds = await eventManager.bounds();
-      expect(bounds.minDeposit).to.equal(ethers.parseUnits("1", 18));
+    it("Should return correct global values and policy", async function () {
+      expect(await eventManager.attendeeDepositAmount()).to.equal(ethers.parseUnits("1", 18));
+      expect(await eventManager.organizerBondAmount()).to.equal(ethers.parseUnits("10", 18));
 
       const policy = await eventManager.policy();
       expect(policy.fullRefundHours).to.equal(24);

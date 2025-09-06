@@ -19,8 +19,12 @@ contract EventManager is Ownable, ReentrancyGuard {
     /// @notice ERC20 token used for all deposits and bonds
     IERC20 public immutable token;
 
-    /// @notice Platform-wide bounds for deposits and bonds
-    Bounds public bounds;
+
+    /// @notice Global deposit amount required for all events
+    uint256 public attendeeDepositAmount;
+
+    /// @notice Global bond amount required for all organizers
+    uint256 public organizerBondAmount;
 
     /// @notice Global refund policy configuration
     PolicyConfig public policy;
@@ -44,13 +48,6 @@ contract EventManager is Ownable, ReentrancyGuard {
     //                               STRUCTS
     // ═══════════════════════════════════════════════════════════════════
 
-    /// @notice Platform limits for deposits and organizer bonds
-    struct Bounds {
-        uint256 minDeposit; // Minimum participant deposit
-        uint256 maxDeposit; // Maximum participant deposit
-        uint256 minBond; // Minimum organizer bond
-        uint256 maxBond; // Maximum organizer bond
-    }
 
     /// @notice Global policy for refunds and forfeit distribution
     struct PolicyConfig {
@@ -70,8 +67,7 @@ contract EventManager is Ownable, ReentrancyGuard {
     struct Event {
         // Basic event info
         address organizer; // Who created the event
-        uint256 deposit; // Required participant deposit
-        uint256 bond; // Organizer's skin-in-the-game bond
+        string description; // Event description
         uint64 startTime; // When event begins
         uint64 endTime; // When event ends (for completion deadline)
         uint16 minAttendanceBps; // Minimum attendance rate (basis points)
@@ -86,7 +82,7 @@ contract EventManager is Ownable, ReentrancyGuard {
         uint32 attendedCount; // Number who actually showed up
         // Financial state
         uint256 forfeitPool; // Total forfeited deposits
-        uint256 rewardPerAttendee; // Fixed reward each attendee gets
+        uint256 rewardPerAttendee; // Reward each attendee gets
         // Per-participant data
         mapping(address => Registration) registrations; // Registration status
         mapping(address => bool) rewardsClaimed; // Claim tracking
@@ -127,7 +123,6 @@ contract EventManager is Ownable, ReentrancyGuard {
     event ParticipantCheckedIn(uint256 indexed eventId, address indexed participant);
     event RewardsClaimed(uint256 indexed eventId, address indexed participant, uint256 amount);
     event Withdrawal(address indexed user, uint256 amount);
-    event BoundsUpdated(uint256 minDeposit, uint256 maxDeposit, uint256 minBond, uint256 maxBond);
     event PolicyUpdated(
         uint256 fullRefundHours,
         uint256 partialRefundHours,
@@ -142,13 +137,9 @@ contract EventManager is Ownable, ReentrancyGuard {
     constructor(address _token, address _owner) Ownable(_owner) {
         token = IERC20(_token);
 
-        // Set default platform bounds
-        bounds = Bounds({
-            minDeposit: 1e18, // 1 token minimum
-            maxDeposit: 1000e18, // 1000 token maximum
-            minBond: 10e18, // 10 token minimum organizer bond
-            maxBond: 10000e18 // 10000 token maximum organizer bond
-        });
+        // Set default global deposit and bond amounts
+        attendeeDepositAmount = 1e18; // 1 token default deposit
+        organizerBondAmount = 10e18; // 10 token default organizer bond
 
         // Set default refund policy
         policy = PolicyConfig({
@@ -163,25 +154,6 @@ contract EventManager is Ownable, ReentrancyGuard {
     //                         ADMIN FUNCTIONS
     // ═══════════════════════════════════════════════════════════════════
 
-    /**
-     * @notice Update platform deposit and bond limits
-     * @param _minDeposit Minimum allowed participant deposit
-     * @param _maxDeposit Maximum allowed participant deposit
-     * @param _minBond Minimum allowed organizer bond
-     * @param _maxBond Maximum allowed organizer bond
-     */
-    function setBounds(
-        uint256 _minDeposit,
-        uint256 _maxDeposit,
-        uint256 _minBond,
-        uint256 _maxBond
-    ) external onlyOwner {
-        require(_minDeposit <= _maxDeposit, "Invalid deposit bounds");
-        require(_minBond <= _maxBond, "Invalid bond bounds");
-
-        bounds = Bounds(_minDeposit, _maxDeposit, _minBond, _maxBond);
-        emit BoundsUpdated(_minDeposit, _maxDeposit, _minBond, _maxBond);
-    }
 
     /**
      * @notice Update global refund and forfeit policy
@@ -208,6 +180,22 @@ contract EventManager is Ownable, ReentrancyGuard {
         });
 
         emit PolicyUpdated(_fullRefundHours, _partialRefundHours, _partialRefundPercent, _attendeeSharePercent);
+    }
+
+    /**
+     * @notice Update global deposit amount for all events
+     * @param _deposit New global deposit amount (no bounds restrictions)
+     */
+    function setAttendeeDepositAmount(uint256 _deposit) external onlyOwner {
+        attendeeDepositAmount = _deposit;
+    }
+
+    /**
+     * @notice Update global bond amount for all organizers
+     * @param _bond New global bond amount (no bounds restrictions)
+     */
+    function setOrganizerBondAmount(uint256 _bond) external onlyOwner {
+        organizerBondAmount = _bond;
     }
 
     // ═══════════════════════════════════════════════════════════════════
@@ -244,8 +232,7 @@ contract EventManager is Ownable, ReentrancyGuard {
 
     /**
      * @notice Create a new event (organizer pays bond upfront)
-     * @param _deposit Required participant deposit amount
-     * @param _bond Organizer bond (skin in the game)
+     * @param _description Event description
      * @param _startTime When event begins (unix timestamp)
      * @param _endTime When event ends (unix timestamp)
      * @param _minAttendanceBps Minimum attendance rate in basis points (10000 = 100%)
@@ -253,29 +240,25 @@ contract EventManager is Ownable, ReentrancyGuard {
      * @return eventId The ID of the created event
      */
     function createEvent(
-        uint256 _deposit,
-        uint256 _bond,
+        string memory _description,
         uint64 _startTime,
         uint64 _endTime,
         uint16 _minAttendanceBps,
         uint32 _capacity
     ) external nonReentrant returns (uint256) {
         require(isRegisteredUser[msg.sender], "Must create account first");
-        require(_deposit >= bounds.minDeposit && _deposit <= bounds.maxDeposit, "Invalid deposit amount");
-        require(_bond >= bounds.minBond && _bond <= bounds.maxBond, "Invalid bond amount");
         require(_startTime > block.timestamp, "Start time must be in future");
         require(_endTime > _startTime, "End time must be after start time");
         require(_minAttendanceBps <= 10000, "Invalid attendance BPS");
         require(_capacity > 0, "Capacity must be positive");
 
         // Take organizer bond upfront
-        token.transferFrom(msg.sender, address(this), _bond);
+        token.transferFrom(msg.sender, address(this), organizerBondAmount);
 
         uint256 eventId = nextEventId++;
         Event storage newEvent = events[eventId];
         newEvent.organizer = msg.sender;
-        newEvent.deposit = _deposit;
-        newEvent.bond = _bond;
+        newEvent.description = _description;
         newEvent.startTime = _startTime;
         newEvent.endTime = _endTime;
         newEvent.minAttendanceBps = _minAttendanceBps;
@@ -313,8 +296,6 @@ contract EventManager is Ownable, ReentrancyGuard {
         require(evt.status == EventStatus.Published, "Event not active");
 
         evt.status = EventStatus.Canceled;
-
-        // Note: Participants get full refunds via claimPayout()
         emit EventCanceled(_eventId);
     }
 
@@ -365,15 +346,15 @@ contract EventManager is Ownable, ReentrancyGuard {
         // Calculate actual attendance rate
         uint256 attendanceRate = evt.confirmedCount > 0 ? (evt.attendedCount * 10000) / evt.confirmedCount : 0;
 
-        // FIXED: Handle organizer bond based on attendance performance
+        // Handle organizer bond based on attendance performance
         if (attendanceRate >= evt.minAttendanceBps) {
             // Met attendance target - full bond refund
-            balances[evt.organizer] += evt.bond;
+            balances[evt.organizer] += organizerBondAmount;
         } else {
-            // FIXED: Corrected penalty calculation - penalty proportional to shortfall
+            // Corrected penalty calculation - penalty proportional to shortfall
             uint256 shortfall = evt.minAttendanceBps - attendanceRate;
-            uint256 penalty = (evt.bond * shortfall) / 10000; // Use 10000 as denominator for basis points
-            balances[evt.organizer] += (evt.bond - penalty);
+            uint256 penalty = (organizerBondAmount * shortfall) / 10000; // Use 10000 as denominator for basis points
+            balances[evt.organizer] += (organizerBondAmount - penalty);
             evt.forfeitPool += penalty;
         }
 
@@ -389,6 +370,7 @@ contract EventManager is Ownable, ReentrancyGuard {
 
     /**
      * @notice Register for an event (pays deposit)
+     * Currently no need for registration approval.
      * @param _eventId Event to register for
      */
     function registerForEvent(uint256 _eventId) external nonReentrant {
@@ -399,11 +381,11 @@ contract EventManager is Ownable, ReentrancyGuard {
         require(evt.status == EventStatus.Published, "Registration not open");
         require(evt.confirmedCount < evt.capacity, "Event at capacity");
         require(!evt.registrations[msg.sender].exists, "Already registered");
-        // FIXED: Allow registration up to and including start time
+        // Allow registration up to and including start time
         require(block.timestamp <= evt.startTime, "Registration closed");
 
         // Take participant deposit
-        token.transferFrom(msg.sender, address(this), evt.deposit);
+        token.transferFrom(msg.sender, address(this), attendeeDepositAmount);
 
         evt.registrations[msg.sender] = Registration({ status: RegStatus.Confirmed, exists: true });
         evt.confirmedCount++;
@@ -426,13 +408,13 @@ contract EventManager is Ownable, ReentrancyGuard {
         evt.confirmedCount--;
 
         // Calculate refund based on timing
-        uint256 refundAmount = _calculateRefund(evt, evt.deposit);
+        uint256 refundAmount = _calculateRefund(evt, attendeeDepositAmount);
         if (refundAmount > 0) {
             balances[msg.sender] += refundAmount;
         }
 
         // Add forfeit to pool
-        uint256 forfeitAmount = evt.deposit - refundAmount;
+        uint256 forfeitAmount = attendeeDepositAmount - refundAmount;
         if (forfeitAmount > 0) {
             evt.forfeitPool += forfeitAmount;
         }
@@ -453,18 +435,17 @@ contract EventManager is Ownable, ReentrancyGuard {
         require(reg.exists, "Not registered for event");
         require(!evt.rewardsClaimed[msg.sender], "Payout already claimed");
 
-        // FIXED: Set claim flag immediately to prevent reentrancy
         evt.rewardsClaimed[msg.sender] = true;
 
         uint256 totalPayout = 0;
 
         if (reg.status == RegStatus.Attended) {
             // Attended: get deposit back + share of forfeit pool
-            totalPayout += evt.deposit; // Original deposit
+            totalPayout += attendeeDepositAmount; // Original deposit
             totalPayout += evt.rewardPerAttendee; // Reward for showing up
         } else if (evt.status == EventStatus.Canceled) {
             // Event canceled: everyone gets full refund
-            totalPayout += evt.deposit;
+            totalPayout += attendeeDepositAmount;
         }
         // Note: No payout for confirmed but didn't attend (forfeit)
 
@@ -490,7 +471,6 @@ contract EventManager is Ownable, ReentrancyGuard {
         require(evt.organizer == msg.sender, "Only organizer can check-in");
         require(evt.status == EventStatus.Published, "Event not active");
         require(block.timestamp >= evt.startTime, "Event not started");
-        // FIXED: Prevent check-in after period is closed
         require(!evt.checkInClosed, "Check-in period closed");
 
         Registration storage reg = evt.registrations[_participant];
@@ -508,14 +488,13 @@ contract EventManager is Ownable, ReentrancyGuard {
     // ═══════════════════════════════════════════════════════════════════
 
     /**
-     * FIXED: Process no-show forfeits for all confirmed but not attended participants
      * @param evt Event storage reference
      */
     function _processNoShowForfeits(Event storage evt) private {
         // Calculate no-shows and add their deposits to forfeit pool
         uint256 noShows = evt.confirmedCount - evt.attendedCount;
         if (noShows > 0) {
-            evt.forfeitPool += (noShows * evt.deposit);
+            evt.forfeitPool += (noShows * attendeeDepositAmount);
         }
     }
 
@@ -541,14 +520,13 @@ contract EventManager is Ownable, ReentrancyGuard {
     }
 
     /**
-     * FIXED: Distribute forfeit pool between organizer and attendees correctly
+     * Distribute forfeit pool between organizer and attendees
      * @param evt Event storage reference
      * @dev Called during event completion
      */
     function _distributeForfeitsByPolicy(Event storage evt) private {
         if (evt.forfeitPool == 0) return;
 
-        // FIXED: Calculate shares from original forfeit pool amount
         uint256 originalForfeitPool = evt.forfeitPool;
         uint256 organizerShare = (originalForfeitPool * (100 - policy.attendeeSharePercent)) / 100;
         uint256 attendeeShare = originalForfeitPool - organizerShare;
@@ -558,7 +536,7 @@ contract EventManager is Ownable, ReentrancyGuard {
             balances[evt.organizer] += organizerShare;
         }
 
-        // Calculate fixed reward per attendee from attendee share
+        // Calculate reward per attendee from attendee share
         if (evt.attendedCount > 0 && attendeeShare > 0) {
             evt.rewardPerAttendee = attendeeShare / evt.attendedCount;
         } else {
@@ -584,8 +562,7 @@ contract EventManager is Ownable, ReentrancyGuard {
         view
         returns (
             address organizer,
-            uint256 deposit,
-            uint256 bond,
+            string memory description,
             uint64 startTime,
             uint64 endTime,
             uint16 minAttendanceBps,
@@ -599,8 +576,7 @@ contract EventManager is Ownable, ReentrancyGuard {
         Event storage evt = events[_eventId];
         return (
             evt.organizer,
-            evt.deposit,
-            evt.bond,
+            evt.description,
             evt.startTime,
             evt.endTime,
             evt.minAttendanceBps,
@@ -658,10 +634,10 @@ contract EventManager is Ownable, ReentrancyGuard {
         uint256 totalPayout = 0;
 
         if (reg.status == RegStatus.Attended) {
-            totalPayout += evt.deposit; // Original deposit back
+            totalPayout += attendeeDepositAmount; // Original deposit back
             totalPayout += evt.rewardPerAttendee; // Share of forfeits
         } else if (evt.status == EventStatus.Canceled) {
-            totalPayout += evt.deposit; // Full refund on cancellation
+            totalPayout += attendeeDepositAmount; // Full refund on cancellation
         }
 
         return totalPayout;
