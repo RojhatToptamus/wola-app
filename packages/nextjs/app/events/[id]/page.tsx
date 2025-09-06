@@ -15,6 +15,7 @@ import {
   isOrganizer,
   safeParseEventData,
 } from "~~/utils/eventUtils";
+import { getEventImage } from "~~/utils/imageUtils";
 import { getOrganizerForEvent, getVenueForEvent } from "~~/utils/mockData";
 
 // Types for policy data
@@ -300,7 +301,7 @@ const EventDetailPage = () => {
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <div className="text-white text-lg mb-4">Event not found</div>
-          <Link href="/events" className="btn btn-primary">
+          <Link href="/" className="btn btn-primary">
             Back to Events
           </Link>
         </div>
@@ -315,14 +316,14 @@ const EventDetailPage = () => {
   const { time: endTime } = formatDateTime(parsedEvent.endTime);
   const isLive = isEventLive(parsedEvent.startTime, parsedEvent.endTime);
   const userRegStatus = userRegistration ? getRegistrationStatusText() : "Not Registered";
-  const randomImageId = parseInt(params?.id as string) * 17; // Consistent image for each event
+  const eventImage = getEventImage(params?.id as string);
 
   return (
     <div className="min-h-screen p-6">
       <div className="max-w-7xl mx-auto">
         {/* Back button */}
         <div className="mb-6">
-          <Link href="/events" className="flex items-center gap-2 text-white/70 hover:text-white transition-colors">
+          <Link href="/" className="flex items-center gap-2 text-white/70 hover:text-white transition-colors">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
@@ -335,7 +336,7 @@ const EventDetailPage = () => {
           <div className="flex items-start justify-center">
             <div className="relative w-full max-w-[600px]">
               <Image
-                src={`https://picsum.photos/600/400?random=${randomImageId}`}
+                src={eventImage}
                 alt="Event image"
                 width={600}
                 height={400}

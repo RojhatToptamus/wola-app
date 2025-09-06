@@ -1,91 +1,220 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import type { NextPage } from "next";
-import { useAccount } from "wagmi";
-import { BugAntIcon, CalendarIcon, MagnifyingGlassIcon, TicketIcon } from "@heroicons/react/24/outline";
-import { Address } from "~~/components/scaffold-eth";
+import { useScaffoldReadContract } from "~~/hooks/scaffold-eth";
+import { formatDateTime, isEventLive, safeParseEventData } from "~~/utils/eventUtils";
+import { getEventImage } from "~~/utils/imageUtils";
+import { getRandomOrganizer, getRandomVenue } from "~~/utils/mockData";
 
 const Home: NextPage = () => {
-  const { address: connectedAddress } = useAccount();
+  const [eventCount, setEventCount] = useState(0);
+
+  // Get the next event ID to know how many events exist
+  const { data: nextEventId } = useScaffoldReadContract({
+    contractName: "EventManager",
+    functionName: "nextEventId",
+  });
+
+  // Get deposit amount for displaying stake requirements
+  const { data: depositAmount } = useScaffoldReadContract({
+    contractName: "EventManager",
+    functionName: "attendeeDepositAmount",
+  });
+
+  useEffect(() => {
+    if (nextEventId) {
+      const count = Number(nextEventId) - 1;
+      setEventCount(count);
+    }
+  }, [nextEventId]);
+
+  // Format timestamp for list view (simplified)
+  const formatDateTimeForList = (timestamp: bigint) => {
+    const { date, time } = formatDateTime(timestamp);
+    const eventDate = new Date(Number(timestamp) * 1000);
+    const today = new Date();
+    const isToday = eventDate.toDateString() === today.toDateString();
+
+    return {
+      date: isToday ? "Today" : date.split(",")[1]?.trim() || date,
+      time,
+    };
+  };
+
+  // Event card component
+  const EventCard = ({ eventId, eventData, isLoading }: { eventId: number; eventData: any; isLoading: boolean }) => {
+    if (isLoading) {
+      return (
+        <div className="card bg-base-300/80 backdrop-blur-sm border border-accent/30">
+          <div className="card-body p-0">
+            <div className="w-full h-48 bg-base-300/60 rounded-t-xl animate-pulse"></div>
+            <div className="p-6">
+              <div className="h-6 bg-base-300/60 rounded mb-3 animate-pulse"></div>
+              <div className="h-4 bg-base-300/60 rounded mb-3 animate-pulse w-3/4"></div>
+              <div className="h-4 bg-base-300/60 rounded mb-4 animate-pulse w-1/2"></div>
+              <div className="flex justify-between">
+                <div className="h-4 bg-base-300/60 rounded animate-pulse w-1/4"></div>
+                <div className="h-4 bg-base-300/60 rounded animate-pulse w-1/4"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    const parsedEvent = safeParseEventData(eventData);
+    if (!parsedEvent) {
+      return null;
+    }
+
+    const { date, time } = formatDateTimeForList(parsedEvent.startTime);
+    const isLive = isEventLive(parsedEvent.startTime, parsedEvent.endTime);
+    const venue = getRandomVenue();
+    const organizerName = getRandomOrganizer();
+    const eventImage = getEventImage(eventId);
+
+    return (
+      <Link href={`/events/${eventId}`} className="block">
+        <div className="card bg-base-300/80 backdrop-blur-sm border border-accent/30 hover:border-white/50 transition-all duration-200 hover:shadow-xl cursor-pointer">
+          <div className="card-body p-0">
+            {/* Event Image */}
+            <div className="relative">
+              <Image
+                src={eventImage}
+                alt="Event image"
+                width={500}
+                height={300}
+                className="w-full h-48 object-cover rounded-t-xl"
+              />
+
+              {/* Live indicator */}
+              {isLive && (
+                <div className="absolute top-4 left-4 flex items-center gap-2 bg-red-500/90 text-white px-3 py-1 rounded-full text-sm font-medium backdrop-blur-sm">
+                  <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
+                  LIVE
+                </div>
+              )}
+
+              {/* Date/Time badge */}
+              <div className="absolute top-4 right-4 bg-black/60 text-white px-3 py-2 rounded-xl text-sm font-medium backdrop-blur-sm">
+                <div className="text-xs opacity-80">{date}</div>
+                <div className="font-semibold">{time}</div>
+              </div>
+            </div>
+
+            {/* Event Content */}
+            <div className="p-6">
+              {/* Event Title/Description */}
+              <h3 className="text-xl font-bold text-white mb-3 line-clamp-2">
+                {parsedEvent.description || "Untitled Event"}
+              </h3>
+
+              {/* Organizer */}
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center text-white text-sm font-bold">
+                  {organizerName.charAt(0)}
+                </div>
+                <div>
+                  <div className="text-white/80 text-sm">By {organizerName}</div>
+                </div>
+              </div>
+
+              {/* Location */}
+              <div className="flex items-center gap-2 mb-4">
+                <svg className="w-4 h-4 text-white/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+                  />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
+                  />
+                </svg>
+                <span className="text-white/70 text-sm">{venue}</span>
+              </div>
+
+              {/* Event Stats */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  {/* Capacity */}
+                  <div className="flex items-center gap-1">
+                    <svg className="w-4 h-4 text-white/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
+                      />
+                    </svg>
+                    <span className="text-white/70 text-sm">
+                      {Number(parsedEvent.confirmedCount)}/{Number(parsedEvent.capacity)}
+                    </span>
+                  </div>
+
+                  {/* Going indicator */}
+                  <div className="bg-green-500/20 text-green-400 px-2 py-1 rounded-full text-xs font-medium">Going</div>
+                </div>
+
+                {/* Stake requirement */}
+                <div className="text-right">
+                  <div className="text-white/60 text-xs">Stake Required</div>
+                  <div className="text-white font-medium text-sm">
+                    {depositAmount ? `${Number(depositAmount) / 1e18} USD` : "0.01 USD"}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </Link>
+    );
+  };
+
+  // Fetch individual event data
+  const EventWithData = ({ eventId }: { eventId: number }) => {
+    const { data: eventData, isLoading } = useScaffoldReadContract({
+      contractName: "EventManager",
+      functionName: "events",
+      args: [BigInt(eventId)],
+    });
+
+    return <EventCard eventId={eventId} eventData={eventData} isLoading={isLoading} />;
+  };
 
   return (
-    <>
-      <div className="flex items-center flex-col grow pt-10">
-        <div className="px-5">
-          <h1 className="text-center">
-            <span className="block text-2xl mb-2">Welcome to</span>
-            <span className="block text-4xl font-bold">Scaffold-ETH 2</span>
-          </h1>
-          <div className="flex justify-center items-center space-x-2 flex-col">
-            <p className="my-2 font-medium">Connected Address:</p>
-            <Address address={connectedAddress} />
-          </div>
-
-          <p className="text-center text-lg">
-            Get started by editing{" "}
-            <code className="italic bg-base-300 text-base font-bold max-w-full break-words break-all inline-block">
-              packages/nextjs/app/page.tsx
-            </code>
-          </p>
-          <p className="text-center text-lg">
-            Edit your smart contract{" "}
-            <code className="italic bg-base-300 text-base font-bold max-w-full break-words break-all inline-block">
-              YourContract.sol
-            </code>{" "}
-            in{" "}
-            <code className="italic bg-base-300 text-base font-bold max-w-full break-words break-all inline-block">
-              packages/hardhat/contracts
-            </code>
-          </p>
+    <div className="min-h-screen p-6">
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-4xl font-bold text-white mb-2">Events</h1>
+          <p className="text-white/70 text-lg">Discover and join upcoming events in Istanbul</p>
         </div>
 
-        <div className="grow bg-base-300 w-full mt-16 px-8 py-12">
-          <div className="flex justify-center items-center gap-12 flex-col md:flex-row">
-            <div className="flex flex-col bg-base-100 px-10 py-10 text-center items-center max-w-xs rounded-3xl">
-              <TicketIcon className="h-8 w-8 fill-secondary" />
-              <p>
-                Discover and join events in Istanbul with the{" "}
-                <Link href="/events" passHref className="link">
-                  Events
-                </Link>{" "}
-                page.
-              </p>
-            </div>
-            <div className="flex flex-col bg-base-100 px-10 py-10 text-center items-center max-w-xs rounded-3xl">
-              <CalendarIcon className="h-8 w-8 fill-secondary" />
-              <p>
-                Create your own events and manage registrations with the{" "}
-                <Link href="/create-event" passHref className="link">
-                  Create Event
-                </Link>{" "}
-                form.
-              </p>
-            </div>
-            <div className="flex flex-col bg-base-100 px-10 py-10 text-center items-center max-w-xs rounded-3xl">
-              <BugAntIcon className="h-8 w-8 fill-secondary" />
-              <p>
-                Tinker with your smart contract using the{" "}
-                <Link href="/debug" passHref className="link">
-                  Debug Contracts
-                </Link>{" "}
-                tab.
-              </p>
-            </div>
-            <div className="flex flex-col bg-base-100 px-10 py-10 text-center items-center max-w-xs rounded-3xl">
-              <MagnifyingGlassIcon className="h-8 w-8 fill-secondary" />
-              <p>
-                Explore your local transactions with the{" "}
-                <Link href="/blockexplorer" passHref className="link">
-                  Block Explorer
-                </Link>{" "}
-                tab.
-              </p>
-            </div>
+        {/* Events Grid */}
+        {eventCount > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {Array.from({ length: eventCount }, (_, index) => (
+              <EventWithData key={index + 1} eventId={index + 1} />
+            ))}
           </div>
-        </div>
+        ) : (
+          <div className="text-center py-12">
+            <div className="text-white/60 text-lg mb-4">No events found</div>
+            <Link href="/create-event" className="btn btn-primary">
+              Create First Event
+            </Link>
+          </div>
+        )}
       </div>
-    </>
+    </div>
   );
 };
 

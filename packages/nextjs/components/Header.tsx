@@ -2,7 +2,7 @@
 
 import React from "react";
 import Link from "next/link";
-import { BellIcon, CalendarIcon, MapIcon, TicketIcon } from "@heroicons/react/24/outline";
+import { BellIcon, MapIcon, TicketIcon, UserPlusIcon } from "@heroicons/react/24/outline";
 import { RainbowKitCustomConnectButton } from "~~/components/scaffold-eth";
 
 const Header = () => {
@@ -12,20 +12,17 @@ const Header = () => {
         <div className="flex items-center justify-between h-16">
           {/* Left side navigation */}
           <nav className="flex items-center space-x-8">
-            <Link
-              href="/events"
-              className="flex items-center space-x-3 transition-colors text-white/50 hover:text-white"
-            >
+            <Link href="/" className="flex items-center space-x-3 transition-colors text-white/50 hover:text-white">
               <TicketIcon className="w-6 h-6" strokeWidth={2} />
               <span className="text-lg font-semibold">Events</span>
             </Link>
 
             <Link
-              href="/calendars"
+              href="/register"
               className="flex items-center space-x-3 transition-colors text-white/50 hover:text-white"
             >
-              <CalendarIcon className="w-6 h-6" strokeWidth={2} />
-              <span className="text-lg font-semibold">Calendars</span>
+              <UserPlusIcon className="w-6 h-6" strokeWidth={2} />
+              <span className="text-lg font-semibold">Register</span>
             </Link>
 
             <Link
