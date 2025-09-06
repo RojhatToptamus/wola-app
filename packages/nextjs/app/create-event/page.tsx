@@ -1,8 +1,16 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
+import { useScaffoldWriteContract } from "~~/hooks/scaffold-eth";
 
 const CreateEventPage = () => {
+  const { writeContractAsync: writeEventManagerAsync } = useScaffoldWriteContract({ contractName: "EventManager" });
+  // const { writeContractAsync: writeMockUSDCAsync } = useScaffoldWriteContract({ contractName: "MockUSDC" });
+
+  // get usdc address
+  // const { data: usdcContract } = useDeployedContractInfo({ contractName: "MockUSDC" });
+
   // Form state management
   const [formData, setFormData] = useState({
     eventName: "",
@@ -24,9 +32,33 @@ const CreateEventPage = () => {
     }));
   };
 
-  const handleCreateEvent = () => {
+  /*   const handleAllowance = async () => {
+    await writeMockUSDCAsync({
+      functionName: "approve",
+      args: [usdcContract!.address, parseEther("1000000000000000000000")],
+    });
+  }; */
+
+  const handleCreateEvent = async () => {
     console.log("Creating event:", formData);
-    // TODO: Implement event creation logic
+
+    // Convert form data to contract parameters
+    const startDateTime = new Date(`${formData.startDate}T${formData.startTime}`);
+    const endDateTime = new Date(`${formData.endDate}T${formData.endTime}`);
+
+    const startTime = Math.floor(startDateTime.getTime() / 1000);
+    const endTime = Math.floor(endDateTime.getTime() / 1000);
+    const capacity = parseInt(formData.capacity) || 100;
+
+    try {
+      await writeEventManagerAsync({
+        functionName: "createEvent",
+        args: [formData.description, BigInt(startTime), BigInt(endTime), capacity],
+      });
+      console.log("Event created successfully!");
+    } catch (error) {
+      console.error("Error creating event:", error);
+    }
   };
 
   return (
@@ -38,7 +70,7 @@ const CreateEventPage = () => {
             className="w-96 h-96 bg-base-300/20  rounded-xl flex items-center justify-center cursor-pointer hover:border-white/50 transition-colors"
             style={{ width: "500px", height: "500px" }}
           >
-            <img
+            <Image
               src="https://picsum.photos/500/500?random=1"
               alt="Event image"
               className="w-full h-full object-cover rounded-xl"
@@ -56,6 +88,7 @@ const CreateEventPage = () => {
               autoCapitalize="words"
               placeholder="Event Name"
               maxLength={140}
+              // I know this looks ugly but I'm too lazy to fix it :(
               style={{
                 height: "54px !important",
                 fontSize: "3rem !important",
