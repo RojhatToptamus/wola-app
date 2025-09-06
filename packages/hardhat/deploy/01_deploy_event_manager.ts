@@ -34,13 +34,15 @@ const deployEventManager: DeployFunction = async function (hre: HardhatRuntimeEn
   console.log("🪙 MockUSDC deployed at:", mockUSDC.address);
   console.log("🎫 EventManager deployed at:", eventManager.address);
 
-  // Check initial bounds
-  const bounds = await eventManagerContract.bounds();
-  console.log("📏 Initial bounds:");
-  console.log("  Min Deposit:", bounds.minDeposit.toString());
-  console.log("  Max Deposit:", bounds.maxDeposit.toString());
-  console.log("  Min Bond:", bounds.minBond.toString());
-  console.log("  Max Bond:", bounds.maxBond.toString());
+  // Check initial configuration
+  const attendeeDeposit = await eventManagerContract.attendeeDepositAmount();
+  const organizerBond = await eventManagerContract.organizerBondAmount();
+  const minAttendanceRatio = await eventManagerContract.minAttendanceRatio();
+
+  console.log("📏 Initial configuration:");
+  console.log("  Attendee Deposit Amount:", attendeeDeposit.toString());
+  console.log("  Organizer Bond Amount:", organizerBond.toString());
+  console.log("  Min Attendance Ratio:", minAttendanceRatio.toString(), "bps");
 
   // Check USDC balance of deployer
   const balance = await usdcContract.balanceOf(deployer);
