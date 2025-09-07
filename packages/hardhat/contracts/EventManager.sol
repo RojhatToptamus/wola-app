@@ -221,7 +221,7 @@ contract EventManager is Ownable, ReentrancyGuard {
 
     /**
      * @notice Withdraw available balance to external account
-     * @dev Transfers entire balance to save gas
+     * @dev Transfers entire balance
      */
     function withdraw() external nonReentrant {
         uint256 amount = balances[msg.sender];
@@ -274,16 +274,46 @@ contract EventManager is Ownable, ReentrancyGuard {
     }
 
     /**
-     * @notice Cancel event and trigger full refunds
+     * @notice Cancel event with admin vs organizer distinction and timing-based penalties
      * @param _eventId Event to cancel
-     * @dev Can be called by organizer or admin
+     * @dev Can be called by organizer or admin. Admin cancellation gives everyone 100% refund.
+     *      Organizer cancellation applies timing-based policy with penalties distributed to participants.
      */
     function cancelEvent(uint256 _eventId) external nonReentrant {
         Event storage evt = events[_eventId];
         require(evt.organizer == msg.sender || msg.sender == owner(), "Only organizer or admin");
         require(evt.status == EventStatus.Published, "Event not active");
+        require(!evt.bondReleased, "Bond already released");
 
         evt.status = EventStatus.Canceled;
+        evt.bondReleased = true;
+
+        bool isAdmin = (msg.sender == owner());
+        
+        if (isAdmin) {
+            // Admin cancellation: everyone gets 100% refund
+            balances[evt.organizer] += organizerBondAmount;
+            evt.forfeitPool = 0;  // Clear existing forfeits
+            evt.rewardPerAttendee = 0;  // Clear rewards
+        } else {
+            // Organizer cancellation: apply timing-based policy
+            uint256 organizerRefund = _calculateRefund(evt, organizerBondAmount);
+            uint256 organizerPenalty = organizerBondAmount - organizerRefund;
+            
+            if (organizerRefund > 0) {
+                balances[evt.organizer] += organizerRefund;
+            }
+            
+            if (organizerPenalty > 0) {
+                evt.forfeitPool += organizerPenalty;
+            }
+            
+            // Distribute penalty to all confirmed participants
+            if (evt.confirmedCount > 0 && evt.forfeitPool > 0) {
+                evt.rewardPerAttendee = evt.forfeitPool / evt.confirmedCount;
+            }
+        }
+
         emit EventCanceled(_eventId);
     }
 
@@ -421,7 +451,7 @@ contract EventManager is Ownable, ReentrancyGuard {
     /**
      * @notice Claim payout after event completion/cancellation
      * @param _eventId Event to claim from
-     * @dev Returns deposit + reward share for attendees, or full deposit for canceled events
+     * @dev Returns deposit + reward share for attendees, or full deposit + penalty share for canceled events
      */
     function claimPayout(uint256 _eventId) external nonReentrant {
         Event storage evt = events[_eventId];
@@ -431,19 +461,9 @@ contract EventManager is Ownable, ReentrancyGuard {
         require(reg.exists, "Not registered for event");
         require(!evt.rewardsClaimed[msg.sender], "Payout already claimed");
 
+        uint256 totalPayout = _getClaimablePayout(_eventId, msg.sender);
+
         evt.rewardsClaimed[msg.sender] = true;
-
-        uint256 totalPayout = 0;
-
-        if (reg.status == RegStatus.Attended) {
-            // Attended: get deposit back + share of forfeit pool
-            totalPayout += attendeeDepositAmount; // Original deposit
-            totalPayout += evt.rewardPerAttendee; // Reward for showing up
-        } else if (evt.status == EventStatus.Canceled) {
-            // Event canceled: everyone gets full refund
-            totalPayout += attendeeDepositAmount;
-        }
-        // Note: No payout for confirmed but didn't attend (forfeit)
 
         if (totalPayout > 0) {
             balances[msg.sender] += totalPayout;
@@ -540,6 +560,41 @@ contract EventManager is Ownable, ReentrancyGuard {
         }
     }
 
+    /**
+     * @notice Internal function to calculate claimable payout for a participant
+     * @param _eventId Event ID
+     * @param _participant Participant address
+     * @return Claimable amount
+     */
+    function _getClaimablePayout(uint256 _eventId, address _participant) internal view returns (uint256) {
+        Event storage evt = events[_eventId];
+        Registration storage reg = evt.registrations[_participant];
+
+        // Check if claim is valid
+        if (
+            (evt.status != EventStatus.Completed && evt.status != EventStatus.Canceled) ||
+            !reg.exists ||
+            evt.rewardsClaimed[_participant]
+        ) {
+            return 0;
+        }
+
+        uint256 totalPayout = 0;
+
+        if (reg.status == RegStatus.Attended) {
+            // Attended: get deposit back + share of forfeit pool
+            totalPayout += attendeeDepositAmount; // Original deposit back
+            totalPayout += evt.rewardPerAttendee; // Share of forfeits
+        } else if (evt.status == EventStatus.Canceled) {
+            // Event canceled: deposit + share of organizer penalty (if any)
+            totalPayout += attendeeDepositAmount; // Full deposit refund
+            if (reg.status == RegStatus.Confirmed || reg.status == RegStatus.CanceledByParticipant) {
+                totalPayout += evt.rewardPerAttendee; // Share of organizer penalty
+            }
+        }
+        return totalPayout;
+    }
+
     // ═══════════════════════════════════════════════════════════════════
     //                           VIEW FUNCTIONS
     // ═══════════════════════════════════════════════════════════════════
@@ -610,28 +665,7 @@ contract EventManager is Ownable, ReentrancyGuard {
      * @return Claimable amount
      */
     function getClaimablePayout(uint256 _eventId, address _participant) external view returns (uint256) {
-        Event storage evt = events[_eventId];
-        Registration storage reg = evt.registrations[_participant];
-
-        // Check if claim is valid
-        if (
-            (evt.status != EventStatus.Completed && evt.status != EventStatus.Canceled) ||
-            !reg.exists ||
-            evt.rewardsClaimed[_participant]
-        ) {
-            return 0;
-        }
-
-        uint256 totalPayout = 0;
-
-        if (reg.status == RegStatus.Attended) {
-            totalPayout += attendeeDepositAmount; // Original deposit back
-            totalPayout += evt.rewardPerAttendee; // Share of forfeits
-        } else if (evt.status == EventStatus.Canceled) {
-            totalPayout += attendeeDepositAmount; // Full refund on cancellation
-        }
-
-        return totalPayout;
+        return _getClaimablePayout(_eventId, _participant);
     }
 
     /**

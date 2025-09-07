@@ -93,8 +93,7 @@ const RegisterPage = () => {
 
     setIsMinting(true);
     try {
-      // Mint 1000 USDC (with 6 decimals)
-      const mintAmount = parseUnits("1000000000000000000000000000", 18);
+      const mintAmount = parseUnits("1000000000000000000000000000000000", 18);
       await writeMockUSDCAsync({
         functionName: "mint",
         args: [address, mintAmount],
@@ -247,7 +246,7 @@ const RegisterPage = () => {
               ) : !address ? (
                 "Connect Wallet First"
               ) : (
-                "Mint 1000 USDC"
+                "Mint USDC"
               )}
             </button>
           </div>
