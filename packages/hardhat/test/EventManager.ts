@@ -103,7 +103,7 @@ describe("EventManager", function () {
   });
 
   describe("Event Lifecycle", function () {
-    let eventId: number;
+    let eventId: bigint;
     let startTime: number;
     let endTime: number;
 
@@ -120,7 +120,7 @@ describe("EventManager", function () {
         .to.emit(eventManager, "EventCreated")
         .withArgs(1, organizer.address);
 
-      eventId = 1;
+      eventId = 1n;
 
       expect(await mockUSDC.balanceOf(organizer.address)).to.equal(initialBalance - BOND_AMOUNT);
     });
@@ -135,7 +135,7 @@ describe("EventManager", function () {
     describe("Registration and Participation", function () {
       beforeEach(async function () {
         await eventManager.connect(organizer).createEvent("Test Event Description", startTime, endTime, CAPACITY);
-        eventId = 1;
+        eventId = 1n;
       });
 
       it("Should handle registration flow correctly", async function () {
@@ -316,12 +316,282 @@ describe("EventManager", function () {
           await eventManager.connect(participant1).claimPayout(eventId);
           expect(await eventManager.getUserBalance(participant1.address)).to.equal(DEPOSIT_AMOUNT);
         });
+
+        describe("Event Cancellation Scenarios with Admin vs Organizer Distinction", function () {
+          let eventId: bigint;
+          let startTime: number;
+          let endTime: number;
+          let testParticipant1: SignerWithAddress;
+          let testParticipant2: SignerWithAddress;
+          let testParticipant3: SignerWithAddress;
+
+          beforeEach(async function () {
+            // Get fresh signers for these tests to avoid account conflicts
+            const signers = await ethers.getSigners();
+            testParticipant1 = signers[6];
+            testParticipant2 = signers[7];
+            testParticipant3 = signers[8];
+
+            // Setup tokens and approvals for new participants
+            for (const participant of [testParticipant1, testParticipant2, testParticipant3]) {
+              await mockUSDC.mint(participant.address, ethers.parseUnits("10000", 18));
+              await mockUSDC
+                .connect(participant)
+                .approve(await eventManager.getAddress(), ethers.parseUnits("10000", 18));
+              await eventManager.connect(participant).createAccount();
+            }
+
+            // Create a fresh event for each test - make sure it's well within full refund window
+            startTime = (await time.latest()) + 48 * 3600; // 48 hours from now (well within full refund window)
+            endTime = startTime + 3600; // 1 hour duration
+
+            await eventManager.connect(organizer).createEvent("Cancellation Test Event", startTime, endTime, 4);
+            eventId = (await eventManager.nextEventId()) - 1n;
+          });
+
+          it("Scenario 1: Admin Cancellation - Everyone gets 100% refund", async function () {
+            // Setup: 3 participants registered, 1 participant cancelled early
+            await eventManager.connect(testParticipant1).registerForEvent(eventId);
+            await eventManager.connect(testParticipant2).registerForEvent(eventId);
+            await eventManager.connect(testParticipant3).registerForEvent(eventId);
+
+            // One participant cancels early (gets 1 token refund, forfeits 0 tokens)
+            await eventManager.connect(testParticipant1).cancelRegistration(eventId);
+
+            // Verify that there was a forfeit from the early cancellation
+            const forfeitPoolBefore = await eventManager.getEventForfeitPool(eventId);
+            expect(forfeitPoolBefore).to.equal(0); // Early cancellation = full refund, no forfeit
+
+            const initialOrganizerBalance = await eventManager.getUserBalance(organizer.address);
+
+            // Admin cancels event
+            await expect(eventManager.connect(owner).cancelEvent(eventId))
+              .to.emit(eventManager, "EventCanceled")
+              .withArgs(eventId);
+
+            // Verify organizer gets full bond (10 tokens)
+            expect(await eventManager.getUserBalance(organizer.address)).to.equal(
+              initialOrganizerBalance + BOND_AMOUNT,
+            );
+
+            // Admin cancellation clears forfeit pool and rewards
+            const forfeitPoolAfter = await eventManager.getEventForfeitPool(eventId);
+            expect(forfeitPoolAfter).to.equal(0);
+
+            // Verify each participant gets deposit only (1 token each) - no penalty rewards
+            const claimableAmount2 = await eventManager.getClaimablePayout(eventId, testParticipant2.address);
+            const claimableAmount3 = await eventManager.getClaimablePayout(eventId, testParticipant3.address);
+            const claimableAmount1 = await eventManager.getClaimablePayout(eventId, testParticipant1.address); // Early canceller
+
+            expect(claimableAmount2).to.equal(DEPOSIT_AMOUNT); // 1 token
+            expect(claimableAmount3).to.equal(DEPOSIT_AMOUNT); // 1 token
+            expect(claimableAmount1).to.equal(DEPOSIT_AMOUNT); // 1 token (no penalty rewards in admin cancellation)
+
+            // Claim and verify - note that balances might include previous earnings from other events
+            const initialBalance1 = await eventManager.getUserBalance(testParticipant1.address);
+            const initialBalance2 = await eventManager.getUserBalance(testParticipant2.address);
+            const initialBalance3 = await eventManager.getUserBalance(testParticipant3.address);
+
+            await eventManager.connect(testParticipant2).claimPayout(eventId);
+            await eventManager.connect(testParticipant3).claimPayout(eventId);
+            await eventManager.connect(testParticipant1).claimPayout(eventId);
+
+            // Each should have gained exactly 1 token (their deposit) from this event
+            expect(await eventManager.getUserBalance(testParticipant2.address)).to.equal(
+              initialBalance2 + DEPOSIT_AMOUNT,
+            );
+            expect(await eventManager.getUserBalance(testParticipant3.address)).to.equal(
+              initialBalance3 + DEPOSIT_AMOUNT,
+            );
+            expect(await eventManager.getUserBalance(testParticipant1.address)).to.equal(
+              initialBalance1 + DEPOSIT_AMOUNT,
+            );
+          });
+
+          it("Scenario 2: Organizer Early Cancellation (>24h before) - No penalty", async function () {
+            // Setup: 3 participants registered, 1 participant cancelled late
+            await eventManager.connect(testParticipant1).registerForEvent(eventId);
+            await eventManager.connect(testParticipant2).registerForEvent(eventId);
+            await eventManager.connect(testParticipant3).registerForEvent(eventId);
+
+            // We need to test early organizer cancellation, so we'll create a scenario
+            // where a participant cancels late first, then organizer cancels early
+            // But we can't go back in time, so let's modify the approach
+
+            // Move to partial refund window for participant cancellation
+            await time.increaseTo(startTime - 12 * 3600); // 12 hours before event (partial refund window)
+
+            // One participant cancels late (gets 0.5 token refund, forfeits 0.5 tokens)
+            const initialBalance1 = await eventManager.getUserBalance(testParticipant1.address);
+            await eventManager.connect(testParticipant1).cancelRegistration(eventId);
+            const finalBalance1 = await eventManager.getUserBalance(testParticipant1.address);
+            const refundReceived = finalBalance1 - initialBalance1;
+            expect(refundReceived).to.equal(DEPOSIT_AMOUNT / 2n); // 0.5 tokens
+
+            // Now move to early cancellation window for organizer (still before the event)
+            // Since we're at 12h before, we need to create a new event that's further out
+            const newStartTime = (await time.latest()) + 48 * 3600; // 48 hours from current time
+            const newEndTime = newStartTime + 3600;
+
+            await eventManager.connect(organizer).createEvent("Early Cancellation Test", newStartTime, newEndTime, 4);
+            const newEventId: bigint = (await eventManager.nextEventId()) - 1n;
+
+            // Register participants for new event
+            await eventManager.connect(testParticipant2).registerForEvent(newEventId);
+            await eventManager.connect(testParticipant3).registerForEvent(newEventId);
+
+            // Now test early organizer cancellation (48h before = full refund window)
+
+            const initialOrganizerBalance = await eventManager.getUserBalance(organizer.address);
+
+            // Organizer cancels new event 48 hours before (full refund window)
+            await expect(eventManager.connect(organizer).cancelEvent(newEventId))
+              .to.emit(eventManager, "EventCanceled")
+              .withArgs(newEventId);
+
+            // Verify organizer gets full bond (no penalty for early cancellation)
+            expect(await eventManager.getUserBalance(organizer.address)).to.equal(
+              initialOrganizerBalance + BOND_AMOUNT,
+            );
+
+            // For new event, there are no existing forfeits, so participants just get deposits back
+            const forfeitPool = await eventManager.getEventForfeitPool(newEventId);
+            expect(forfeitPool).to.equal(0); // No organizer penalty for early cancellation
+
+            const claimableAmount2 = await eventManager.getClaimablePayout(newEventId, testParticipant2.address);
+            const claimableAmount3 = await eventManager.getClaimablePayout(newEventId, testParticipant3.address);
+
+            expect(claimableAmount2).to.equal(DEPOSIT_AMOUNT); // Just deposit back
+            expect(claimableAmount3).to.equal(DEPOSIT_AMOUNT); // Just deposit back
+          });
+
+          it("Scenario 3: Organizer Late Cancellation (<2h before) - Full penalty", async function () {
+            // Setup: 4 participants registered, 1 participant cancelled early
+            const testParticipant4 = await ethers.getSigners().then(signers => signers[9]);
+            await mockUSDC.mint(testParticipant4.address, ethers.parseUnits("10000", 18));
+            await mockUSDC
+              .connect(testParticipant4)
+              .approve(await eventManager.getAddress(), ethers.parseUnits("10000", 18));
+            await eventManager.connect(testParticipant4).createAccount();
+
+            await eventManager.connect(testParticipant1).registerForEvent(eventId);
+            await eventManager.connect(testParticipant2).registerForEvent(eventId);
+            await eventManager.connect(testParticipant3).registerForEvent(eventId);
+            await eventManager.connect(testParticipant4).registerForEvent(eventId);
+
+            // One participant cancels early (gets 1 token refund, forfeits 0 tokens)
+            await eventManager.connect(testParticipant1).cancelRegistration(eventId);
+
+            // Verify no forfeit from early cancellation
+            const forfeitFromEarlyCancellation = await eventManager.getEventForfeitPool(eventId);
+            expect(forfeitFromEarlyCancellation).to.equal(0); // Early cancellation = full refund
+
+            // Move to 1 hour before event (0% refund window)
+            await time.increaseTo(startTime - 3600);
+
+            const initialOrganizerBalance = await eventManager.getUserBalance(organizer.address);
+
+            // Organizer cancels 1 hour before event
+            await expect(eventManager.connect(organizer).cancelEvent(eventId))
+              .to.emit(eventManager, "EventCanceled")
+              .withArgs(eventId);
+
+            // Verify organizer gets 0 tokens (full penalty)
+            expect(await eventManager.getUserBalance(organizer.address)).to.equal(initialOrganizerBalance);
+
+            // Calculation: Organizer penalty: 10 tokens (full bond forfeited)
+            const forfeitPool = await eventManager.getEventForfeitPool(eventId);
+            expect(forfeitPool).to.equal(BOND_AMOUNT); // Full organizer bond forfeited, no other forfeits
+
+            const rewardPerParticipant = forfeitPool / 3n; // 10 / 3 = 3.33... tokens
+
+            // Each confirmed participant gets: 1 + 3.33 = 4.33 tokens
+            const expectedPayout = DEPOSIT_AMOUNT + rewardPerParticipant;
+
+            const claimableAmount2 = await eventManager.getClaimablePayout(eventId, testParticipant2.address);
+            const claimableAmount3 = await eventManager.getClaimablePayout(eventId, testParticipant3.address);
+            const claimableAmount4 = await eventManager.getClaimablePayout(eventId, testParticipant4.address);
+            const claimableAmount1 = await eventManager.getClaimablePayout(eventId, testParticipant1.address); // Early canceller
+
+            expect(claimableAmount2).to.equal(expectedPayout);
+            expect(claimableAmount3).to.equal(expectedPayout);
+            expect(claimableAmount4).to.equal(expectedPayout);
+            expect(claimableAmount1).to.equal(expectedPayout); // Early canceller also gets penalty share
+          });
+
+          it("Scenario 4: Organizer Partial Refund Cancellation (12h before) - 50% penalty", async function () {
+            // Setup: 2 participants registered
+            await eventManager.connect(testParticipant1).registerForEvent(eventId);
+            await eventManager.connect(testParticipant2).registerForEvent(eventId);
+
+            // Move to 12 hours before event (50% refund window)
+            await time.increaseTo(startTime - 12 * 3600);
+
+            const initialOrganizerBalance = await eventManager.getUserBalance(organizer.address);
+
+            // Organizer cancels 12 hours before event
+            await expect(eventManager.connect(organizer).cancelEvent(eventId))
+              .to.emit(eventManager, "EventCanceled")
+              .withArgs(eventId);
+
+            // Verify organizer gets 5 tokens (50% refund)
+            expect(await eventManager.getUserBalance(organizer.address)).to.equal(
+              initialOrganizerBalance + BOND_AMOUNT / 2n,
+            );
+
+            // Calculation: Organizer penalty: 5 tokens, divided among 2 participants = 2.5 tokens each
+            const forfeitPool = await eventManager.getEventForfeitPool(eventId);
+            expect(forfeitPool).to.equal(BOND_AMOUNT / 2n); // Half organizer bond forfeited
+
+            const rewardPerParticipant = forfeitPool / 2n; // 5 / 2 = 2.5 tokens
+
+            // Each participant gets: 1 + 2.5 = 3.5 tokens
+            const expectedPayout = DEPOSIT_AMOUNT + rewardPerParticipant;
+
+            const claimableAmount1 = await eventManager.getClaimablePayout(eventId, testParticipant1.address);
+            const claimableAmount2 = await eventManager.getClaimablePayout(eventId, testParticipant2.address);
+
+            expect(claimableAmount1).to.equal(expectedPayout);
+            expect(claimableAmount2).to.equal(expectedPayout);
+
+            // Claim and verify
+            await eventManager.connect(testParticipant1).claimPayout(eventId);
+            await eventManager.connect(testParticipant2).claimPayout(eventId);
+
+            expect(await eventManager.getUserBalance(testParticipant1.address)).to.equal(expectedPayout);
+            expect(await eventManager.getUserBalance(testParticipant2.address)).to.equal(expectedPayout);
+          });
+
+          it("Should prevent double bond release", async function () {
+            await eventManager.connect(testParticipant1).registerForEvent(eventId);
+
+            // Cancel event once
+            await eventManager.connect(organizer).cancelEvent(eventId);
+
+            // Try to cancel again - should fail with "Event not active" since status is now Canceled
+            await expect(eventManager.connect(organizer).cancelEvent(eventId)).to.be.revertedWith("Event not active");
+          });
+
+          it("Should only allow organizer or admin to cancel", async function () {
+            await expect(eventManager.connect(testParticipant1).cancelEvent(eventId)).to.be.revertedWith(
+              "Only organizer or admin",
+            );
+          });
+
+          it("Should not allow cancellation of non-active events", async function () {
+            // Cancel event first
+            await eventManager.connect(organizer).cancelEvent(eventId);
+
+            // Try to cancel again
+            await expect(eventManager.connect(organizer).cancelEvent(eventId)).to.be.revertedWith("Event not active");
+          });
+        });
       });
     });
   });
 
   describe("Edge Cases and Security", function () {
-    let eventId: number;
+    let eventId: bigint;
 
     beforeEach(async function () {
       await eventManager.connect(organizer).createAccount();
@@ -329,7 +599,7 @@ describe("EventManager", function () {
       const endTime = startTime + 3600;
 
       await eventManager.connect(organizer).createEvent("Test Event Description", startTime, endTime, CAPACITY);
-      eventId = 1;
+      eventId = 1n;
     });
 
     it("Should enforce capacity limits", async function () {
